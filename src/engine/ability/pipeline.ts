@@ -1,4 +1,5 @@
 import type { WorldState } from '@/engine/core/types'
+import { pushLog } from '@/engine/core/types'
 import { Sentinel } from './Ability'
 
 export interface ActionResult {
@@ -31,6 +32,8 @@ export function executeSentinel(world: WorldState, sentinel: Sentinel): ActionRe
   for (const c of ability.components) {
     c.act?.(world, caster, ctx)
   }
+
+  pushLog(world, `${caster.name} casts ${ability.name}`)
 
   return { consumeTurn: ability.consumeTurn }
 }

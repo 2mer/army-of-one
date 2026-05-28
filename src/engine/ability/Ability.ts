@@ -1,4 +1,10 @@
 import type { WorldState, AbilityInstance } from '@/engine/core/types'
+import { getPOI } from '@/engine/map/initialState'
+
+export interface InspectResult {
+  occupant: { name: string; glyph: string } | null
+  poi: { type: string } | null
+}
 
 export class Sentinel {
   abilityId: string
@@ -71,4 +77,35 @@ export class PlayerFacade {
   get mana(): number { return this.world.entities.get(this.world.playerId)?.mana ?? 0 }
   get maxMana(): number { return this.world.entities.get(this.world.playerId)?.maxMana ?? 0 }
   get position(): number { return this.world.entities.get(this.world.playerId)?.position ?? 0 }
+  get viewRange(): number { return this.world.entities.get(this.world.playerId)?.viewRange ?? 0 }
+
+  inspect(tileIndex: number): InspectResult {
+    const player = this.world.entities.get(this.world.playerId)
+    if (!player) throw new Error('player not found')
+
+    const distance = Math.abs(tileIndex - player.position)
+    if (distance > player.viewRange) {
+      throw new Error('tile is not visible from here')
+    }
+
+    const tile = this.world.tiles.get(tileIndex)
+    if (!tile) {
+      throw new Error('tile is not visible from here')
+    }
+
+    const poi = getPOI(tileIndex)
+
+    let occupant: { name: string; glyph: string } | null = null
+    if (tile.occupant !== null) {
+      const entity = this.world.entities.get(tile.occupant)
+      if (entity) {
+        occupant = { name: entity.name, glyph: entity.glyph }
+      }
+    }
+
+    return {
+      occupant,
+      poi: { type: poi.type },
+    }
+  }
 }

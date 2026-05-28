@@ -44,12 +44,26 @@ export interface EquipmentSlots {
   neck: null
 }
 
+export interface LogEntry {
+  id: number
+  message: string
+}
+
+export function pushLog(world: WorldState, message: string): void {
+  world.log.push({ id: world._nextLogId++, message })
+  if (world.log.length > 100) {
+    world.log.shift()
+  }
+}
+
 export interface WorldState {
   entities: Map<EntityId, Entity>
   playerId: EntityId
   tiles: Map<number, Tile>
   turn: number
   gameResult: 'playing' | 'won' | 'lost'
+  log: LogEntry[]
+  _nextLogId: number
 }
 
 export interface Entity {
@@ -61,6 +75,7 @@ export interface Entity {
   mana: number
   maxMana: number
   position: number
+  viewRange: number
   abilities: AbilityInstance[]
   statusEffects: StatusEffect[]
   equipment: EquipmentSlots

@@ -57,6 +57,13 @@ function createPlayerAbilities() {
       currentCooldown: 0,
       consumeTurn: true,
     },
+    {
+      id: 'wait',
+      name: 'Wait',
+      components: [],
+      currentCooldown: 0,
+      consumeTurn: true,
+    },
   ]
 }
 
@@ -106,6 +113,7 @@ function createPlayerEntity(): Entity {
     mana: 50,
     maxMana: 50,
     position: 0,
+    viewRange: 5,
     abilities: createPlayerAbilities(),
     statusEffects: [],
     equipment: {
@@ -128,6 +136,7 @@ function createSlimeEntity(index: number): Entity {
     mana: 0,
     maxMana: 0,
     position: index,
+    viewRange: 0,
     abilities: createSlimeAbilities(),
     statusEffects: [],
     equipment: {
@@ -188,6 +197,8 @@ export function createInitialState(): WorldState {
     tiles: new Map(),
     turn: 0,
     gameResult: 'playing',
+    log: [],
+    _nextLogId: 1,
   }
 
   const player = createPlayerEntity()

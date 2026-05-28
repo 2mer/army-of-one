@@ -30,6 +30,7 @@ export class GameField {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     })
+    parent.innerHTML = ''
     parent.appendChild(app.canvas)
     return new GameField(app)
   }

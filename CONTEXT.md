@@ -43,9 +43,9 @@ The root game state object. Contains:
 
 A character in the game. Player and enemies share the same `Entity` type.
 
-Fields: `id: EntityId`, `name: string`, `glyph: string` (rendering character), `hp: number`, `maxHp: number`, `mana: number`, `maxMana: number`, `position: number` (map index), `abilities: AbilityInstance[]`, `statusEffects: StatusEffect[]`, `equipment: EquipmentSlots`.
+Fields: `id: EntityId`, `name: string`, `glyph: string` (rendering character), `hp: number`, `maxHp: number`, `mana: number`, `maxMana: number`, `position: number` (map index), `viewRange: number` (tiles observable in each direction), `abilities: AbilityInstance[]`, `statusEffects: StatusEffect[]`, `equipment: EquipmentSlots`.
 
-Default player stats: HP 100, Mana 50, glyph `@`. Default slime stats: HP 30, Mana 0, glyph `s`.
+Default player stats: HP 100, Mana 50, viewRange 5, glyph `@`. Default slime stats: HP 30, Mana 0, viewRange 0, glyph `s`.
 
 ## Tile
 
@@ -97,6 +97,10 @@ Provides visual rendering data: `glyph: string`, `fgColor: string`, `bgColor?: s
 
 A player ability that targets an adjacent tile and triggers whatever the tile defines as its interaction. Used to activate win tiles, shops, events, etc. Consumes a turn.
 
+## Wait
+
+A player ability with zero components. Always succeeds, consumes a turn, does nothing. Used as the fallback action in scripts when neither attacking nor moving is possible.
+
 ## Map index — first slice
 
 | Index | Content | Glyph |
@@ -117,15 +121,31 @@ Entities act in ascending order of their map index — leftmost (closest to orig
 
 User-written TypeScript code that controls the player's actions. Runs as a generator function. Each action returns a Sentinel object that must be `yield`ed to the engine. The engine consumes each yield as one atomic game tick (apply action, render, check pause).
 
+Scripts adopt an **observation-driven** pattern: query the world with `player.inspect()` to decide intent, then validate with `.canCast` and execute with `.cast()`.
+
 ```ts
-function* script() {
+function* script(player) {
   while (true) {
-    if (player.abilities.attack.canCast()) {
-      yield player.abilities.attack.cast()
+    const there = player.position + 1
+
+    if (player.inspect(there).occupant && player.abilities.Attack.at(there).canCast) {
+      yield player.abilities.Attack.at(there).cast()
+    } else if (player.abilities.MoveForward.at(there).canCast) {
+      yield player.abilities.MoveForward.at(there).cast()
     } else {
-      yield player.abilities.moveForward.cast()
+      yield player.abilities.Wait.at(player.position).cast()
     }
   }
+}
+```
+
+## Inspect
+A method on `PlayerFacade` that returns an `InspectResult` for any tile within the player's `viewRange`. Throws `"tile is not visible from here"` if the tile is out of range or not yet materialised. Used as the primary world-observation API — scripts inspect the world to decide intent, then use `.canCast` to validate against ability-specific constraints.
+
+```ts
+type InspectResult = {
+  occupant: { name: string; glyph: string } | null
+  poi: { type: string } | null
 }
 ```
 
@@ -168,6 +188,18 @@ Only one generator can be active at a time. Calling `act()` while a generator is
 ## act()
 
 The player-facing function to submit a generator (or a sentinel, wrapped as a size-1 generator) to the action processor. Returns a Promise resolved when the generator completes.
+
+## Game Log
+
+A scrollable list of `LogEntry` objects recording game events: ability casts, damage dealt, deaths, and player-suffered damage. Displayed in the sidebar above the Script Editor. Each entry has a stable `id` for React key persistence. Capped at 100 entries (oldest shifted first).
+
+## LogEntry
+
+`{ id: number, message: string }` — a single entry in the Game Log. The `id` auto-increments globally per session and is never reused, ensuring stable React keys even as old entries are evicted.
+
+## Sidebar
+
+The right-hand panel (`w-80`) containing the Game Log and the togglable Script Editor. Always visible — the log stays on-screen even when the editor is open.
 
 ## Game mode
 

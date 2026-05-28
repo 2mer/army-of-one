@@ -5,7 +5,9 @@ import { processEnemyAI } from './enemyAI'
 
 export interface ProcessorState {
   mode: 'idle' | 'auto'
-  speed: number  // ms delay between actions
+  speed: number
+  paused: boolean
+  tick: number
 }
 
 export class ActionProcessor {
@@ -14,7 +16,8 @@ export class ActionProcessor {
   private frameId: number | null = null
   private lastActionTime: number = 0
   speed: number = 150
-  private paused: boolean = false
+  paused: boolean = false
+  private tickNum: number = 0
   private stateListener: ((state: ProcessorState) => void) | null = null
 
   constructor(world: WorldState) {
@@ -29,10 +32,6 @@ export class ActionProcessor {
     return this.generator ? 'auto' : 'idle'
   }
 
-  get isPaused(): boolean {
-    return this.paused
-  }
-
   act(factory: (player: PlayerFacade) => Generator<Sentinel, void, unknown>): void {
     if (this.generator) {
       throw new Error('a script is already running')
@@ -45,10 +44,16 @@ export class ActionProcessor {
     this.startLoop()
   }
 
-  pause(): void {
-    this.paused = true
-    this.generator = null
+  togglePause(): void {
+    this.paused = !this.paused
     this.notify()
+  }
+
+  stop(): void {
+    this.generator = null
+    this.paused = false
+    this.notify()
+    this.stopLoop()
   }
 
   private startLoop(): void {
@@ -67,11 +72,22 @@ export class ActionProcessor {
     }
   }
 
+  step(): void {
+    if (!this.generator) return
+    this.executeAction()
+  }
+
   private tick(now: number): void {
     if (!this.generator || this.paused) return
 
     if (now - this.lastActionTime < this.speed) return
     this.lastActionTime = now
+
+    this.executeAction()
+  }
+
+  private executeAction(): void {
+    if (!this.generator) return
 
     const { value: sentinel, done } = this.generator.next()
 
@@ -104,6 +120,8 @@ export class ActionProcessor {
     }
 
     this.checkGameResult()
+    this.tickNum++
+    this.notify()
   }
 
   private checkPlayerDeath(): void {
@@ -126,6 +144,8 @@ export class ActionProcessor {
     this.stateListener?.({
       mode: this.mode,
       speed: this.speed,
+      paused: this.paused,
+      tick: this.tickNum,
     })
   }
 }

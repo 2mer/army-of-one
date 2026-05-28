@@ -1,20 +1,22 @@
 import { useCallback, useRef } from 'react'
-import Editor from '@monaco-editor/react'
+import Editor, { loader } from '@monaco-editor/react'
+import * as monaco from 'monaco-editor'
 import type { OnMount } from '@monaco-editor/react'
 import type { ActionProcessor } from '@/engine/processor/ActionProcessor'
-import type { PlayerFacade } from '@/engine/ability/Ability'
-import type { Sentinel } from '@/engine/ability/Ability'
+import type { PlayerFacade, Sentinel } from '@/engine/ability/Ability'
+
+loader.config({ monaco })
 
 const DEFAULT_SCRIPT = `act(function*(player) {
   while (true) {
-    const targetTile = player.position + 1
+    const there = player.position + 1
 
-    if (player.abilities.Attack.at(targetTile).canCast) {
-      yield player.abilities.Attack.at(targetTile).cast()
-    } else if (player.abilities.MoveForward.at(targetTile).canCast) {
-      yield player.abilities.MoveForward.at(targetTile).cast()
+    if (player.inspect(there).occupant && player.abilities.Attack.at(there).canCast) {
+      yield player.abilities.Attack.at(there).cast()
+    } else if (player.abilities.MoveForward.at(there).canCast) {
+      yield player.abilities.MoveForward.at(there).cast()
     } else {
-      yield player.abilities.MoveBack.at(player.position - 1).cast()
+      yield player.abilities.Wait.at(player.position).cast()
     }
   }
 })
@@ -30,6 +32,13 @@ interface PlayerFacade {
   mana: number
   maxMana: number
   position: number
+  viewRange: number
+  inspect(tileIndex: number): InspectResult
+}
+
+interface InspectResult {
+  occupant: { name: string; glyph: string } | null
+  poi: { type: string } | null
 }
 
 interface AbilityFacade {
@@ -50,25 +59,31 @@ interface Sentinel {
 
 interface ScriptEditorProps {
   processor: ActionProcessor | null
+  mode: 'idle' | 'auto'
 }
 
-export function ScriptEditor({ processor }: ScriptEditorProps) {
+export function ScriptEditor({ processor, mode }: ScriptEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
 
-  const handleMount: OnMount = useCallback((editor, monaco) => {
+  const handleMount: OnMount = useCallback((editor, monacoNs) => {
     editorRef.current = editor
 
-    monaco.languages.typescript.typescriptDefaults.addExtraLib(
+    monacoNs.languages.typescript.typescriptDefaults.addExtraLib(
       DECLARATIONS,
       'globals.d.ts'
     )
 
-    monaco.editor.setTheme('vs-dark')
+    monacoNs.editor.setTheme('vs-dark')
+    editor.focus()
   }, [])
 
   const handleRun = useCallback(() => {
     const code = editorRef.current?.getValue()
     if (!code || !processor) return
+
+    if (processor.mode === 'auto') {
+      processor.stop()
+    }
 
     try {
       const factory = new Function('act', code)
@@ -89,7 +104,7 @@ export function ScriptEditor({ processor }: ScriptEditorProps) {
           className="px-2 py-0.5 bg-[var(--game-accent)] text-black rounded text-xs cursor-pointer hover:opacity-80"
           onClick={handleRun}
         >
-          ▶ Run
+          {mode === 'auto' ? '↻ Re-run' : '▶ Run'}
         </button>
       </div>
       <div className="flex-1">

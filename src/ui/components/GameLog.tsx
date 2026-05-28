@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react'
+import type { LogEntry } from '@/engine/core/types'
 
 interface GameLogProps {
-  entries: string[]
+  entries: LogEntry[]
 }
 
 export function GameLog({ entries }: GameLogProps) {
@@ -12,13 +13,13 @@ export function GameLog({ entries }: GameLogProps) {
   }, [entries])
 
   return (
-    <div className="h-24 overflow-y-auto border-t border-[#333] bg-black/40 text-xs p-2">
+    <div className="flex-1 min-h-0 overflow-y-auto text-xs p-2 bg-black/40">
       {entries.length === 0 && (
         <div className="text-[#555] italic">Game log</div>
       )}
-      {entries.map((entry, i) => (
-        <div key={i} className="text-[#888] leading-5">
-          <span className="text-[#555]">{'>'}</span> {entry}
+      {entries.map(entry => (
+        <div key={entry.id} className="text-[#888] leading-5">
+          <span className="text-[#555]">{'>'}</span> {entry.message}
         </div>
       ))}
       <div ref={bottomRef} />
