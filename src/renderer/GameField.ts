@@ -153,7 +153,7 @@ export class GameField {
 
     return {
       x: this.app.screen.width / 2 + offset * TILE_SIZE,
-      y: this.app.screen.height / 2 + BASE_TILE_Y,
+      y: this.app.screen.height / 2 + Math.min(BASE_TILE_Y, this.app.screen.height * 0.15),
     }
   }
 

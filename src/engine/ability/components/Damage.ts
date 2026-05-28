@@ -19,6 +19,8 @@ export class Damage implements AbilityComponent {
         pushLog(world, `${caster.name} hits ${target.name} for ${this.amount} damage (${oldHp} → ${target.hp})`)
         if (target.hp === 0 && oldHp > 0) {
           pushLog(world, `${target.name} dies`)
+          tile.occupant = null
+          world.entities.delete(target.id)
         }
       }
     }

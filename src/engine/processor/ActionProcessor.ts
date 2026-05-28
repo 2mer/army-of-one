@@ -1,4 +1,5 @@
 import type { WorldState } from '@/engine/core/types'
+import { pushLog } from '@/engine/core/types'
 import { executeSentinel } from '@/engine/ability/pipeline'
 import { Sentinel, PlayerFacade } from '@/engine/ability/Ability'
 import { processEnemyAI } from './enemyAI'
@@ -89,16 +90,16 @@ export class ActionProcessor {
   private executeAction(): void {
     if (!this.generator) return
 
-    const { value: sentinel, done } = this.generator.next()
-
-    if (done) {
-      this.generator = null
-      this.notify()
-      this.stopLoop()
-      return
-    }
-
     try {
+      const { value: sentinel, done } = this.generator.next()
+
+      if (done) {
+        this.generator = null
+        this.notify()
+        this.stopLoop()
+        return
+      }
+
       const result = executeSentinel(this.world, sentinel)
 
       this.checkPlayerDeath()
@@ -106,13 +107,14 @@ export class ActionProcessor {
       if (result.consumeTurn && this.world.gameResult === 'playing') {
         try {
           processEnemyAI(this.world)
-        } catch {
-          // enemy AI error, continue
+        } catch (e) {
+          pushLog(this.world, `Enemy AI error: ${e instanceof Error ? e.message : e}`, 'error')
         }
         this.checkPlayerDeath()
         this.world.turn++
       }
-    } catch {
+    } catch (e) {
+      pushLog(this.world, `Script error: ${e instanceof Error ? e.message : e}`, 'error')
       this.generator = null
       this.paused = false
       this.notify()

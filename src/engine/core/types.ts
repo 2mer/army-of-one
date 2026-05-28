@@ -44,13 +44,16 @@ export interface EquipmentSlots {
   neck: null
 }
 
+export type LogEntryType = 'info' | 'error' | 'highlight'
+
 export interface LogEntry {
   id: number
   message: string
+  type: LogEntryType
 }
 
-export function pushLog(world: WorldState, message: string): void {
-  world.log.push({ id: world._nextLogId++, message })
+export function pushLog(world: WorldState, message: string, type: LogEntryType = 'info'): void {
+  world.log.push({ id: world._nextLogId++, message, type })
   if (world.log.length > 100) {
     world.log.shift()
   }

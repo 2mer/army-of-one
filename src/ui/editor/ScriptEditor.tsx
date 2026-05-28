@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor'
 import type { OnMount } from '@monaco-editor/react'
 import type { ActionProcessor } from '@/engine/processor/ActionProcessor'
 import type { PlayerFacade, Sentinel } from '@/engine/ability/Ability'
+import { pushLog } from '@/engine/core/types'
 
 loader.config({ monaco })
 
@@ -91,7 +92,7 @@ export function ScriptEditor({ processor, mode }: ScriptEditorProps) {
         processor.act(fn)
       })
     } catch (e) {
-      console.error('Script error:', e)
+      pushLog(processor.world, `Script compile error: ${e instanceof Error ? e.message : e}`, 'error')
     }
   }, [processor])
 
