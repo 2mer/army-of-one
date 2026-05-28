@@ -22,9 +22,10 @@ function actForSlime(world: WorldState, slime: Entity, player: Entity): void {
   const moveForward = slime.abilities.find(a => a.name === 'MoveForward')
   const moveBack = slime.abilities.find(a => a.name === 'MoveBack')
 
-  const isOccupied = forwardTileData?.occupant !== null && forwardTileData?.occupant !== undefined
+  const isOccupiedByPlayer = forwardTileData?.occupant === player.id
+  const isForwardClear = forwardTileData?.occupant === null
 
-  if (attackAbility && isOccupied) {
+  if (attackAbility && isOccupiedByPlayer) {
     executeSentinel(world, {
       abilityId: attackAbility.id,
       casterId: slime.id,
@@ -33,7 +34,7 @@ function actForSlime(world: WorldState, slime: Entity, player: Entity): void {
     return
   }
 
-  if (moveForward && direction === 1) {
+  if (moveForward && isForwardClear && direction === 1) {
     executeSentinel(world, {
       abilityId: moveForward.id,
       casterId: slime.id,
@@ -42,7 +43,7 @@ function actForSlime(world: WorldState, slime: Entity, player: Entity): void {
     return
   }
 
-  if (moveBack && direction === -1) {
+  if (moveBack && isForwardClear && direction === -1) {
     executeSentinel(world, {
       abilityId: moveBack.id,
       casterId: slime.id,
