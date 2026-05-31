@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor'
 import type { OnMount } from '@monaco-editor/react'
 import type { ActionProcessor } from '@/engine/processor/ActionProcessor'
 import type { PlayerFacade, Sentinel } from '@/engine/ability/Ability'
+import { ScriptIndicator } from '@/ui/components/ScriptIndicator'
 import { pushLog } from '@/engine/core/types'
 
 loader.config({ monaco })
@@ -101,12 +102,9 @@ export function ScriptEditor({ processor, mode }: ScriptEditorProps) {
       <div className="flex items-center gap-2 px-3 py-1 bg-[#1a1a22] border-b border-[#333] text-xs text-[#888]">
         <span>script.strategy.ts</span>
         <span className="flex-1" />
-        <button
-          className="px-2 py-0.5 bg-[var(--game-accent)] text-black rounded text-xs cursor-pointer hover:opacity-80"
-          onClick={handleRun}
-        >
-          {mode === 'auto' ? '↻ Re-run' : '▶ Run'}
-        </button>
+        {processor && (
+          <ScriptIndicator processor={processor} paused={processor.paused} onRun={handleRun} />
+        )}
       </div>
       <div className="flex-1">
         <Editor

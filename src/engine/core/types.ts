@@ -16,7 +16,7 @@ export interface InteractableComponent {
 export type TileComponent = RenderableComponent | InteractableComponent
 
 export interface POI {
-  type: 'blank' | 'spawn' | 'slime' | 'win'
+  type: 'blank' | 'spawn' | 'win'
 }
 
 export interface Tile {
@@ -73,6 +73,7 @@ export interface Entity {
   id: EntityId
   name: string
   glyph: string
+  glyphColor?: string
   hp: number
   maxHp: number
   mana: number
@@ -86,7 +87,7 @@ export interface Entity {
 
 export interface CanCastResult {
   ok: boolean
-  reason?: string
+  reasons: string[]
 }
 
 export interface ActContext {

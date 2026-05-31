@@ -16,7 +16,7 @@ export class ActionProcessor {
   private generator: Generator<Sentinel, void, unknown> | null = null
   private frameId: number | null = null
   private lastActionTime: number = 0
-  speed: number = 150
+  speed: number = 200
   paused: boolean = false
   private tickNum: number = 0
   private stateListener: ((state: ProcessorState) => void) | null = null

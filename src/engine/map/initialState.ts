@@ -108,6 +108,7 @@ function createPlayerEntity(): Entity {
     id,
     name: 'Player',
     glyph: '@',
+    glyphColor: '#67e8f9',
     hp: 100,
     maxHp: 100,
     mana: 50,
@@ -130,7 +131,8 @@ function createSlimeEntity(index: number): Entity {
   return {
     id,
     name: 'Slime',
-    glyph: 's',
+    glyph: '⯊',
+    glyphColor: '#4ade80',
     hp: 30,
     maxHp: 30,
     mana: 0,
@@ -157,7 +159,7 @@ export function getPOI(index: number): POI {
   if (index in staticPOIs) return staticPOIs[index]
 
   if (index >= 1 && index <= 5) return { type: 'blank' }
-  if (index >= 6 && index <= 8) return { type: 'slime' }
+  if (index >= 6 && index <= 8) return { type: 'blank' }
   if (index === 9) return { type: 'blank' }
 
   return { type: 'blank' }
@@ -172,9 +174,6 @@ function materialiseTile(index: number, poi: POI): Tile {
       break
     case 'blank':
       components.push({ type: 'Renderable', glyph: '.', fgColor: '#444' })
-      break
-    case 'slime':
-      components.push({ type: 'Renderable', glyph: '.', fgColor: '#666' })
       break
     case 'win':
       components.push({ type: 'Renderable', glyph: '>', fgColor: '#c084fc' })

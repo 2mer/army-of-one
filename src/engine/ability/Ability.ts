@@ -1,6 +1,10 @@
 import type { WorldState, AbilityInstance } from '@/engine/core/types'
 import { getPOI } from '@/engine/map/initialState'
 
+export function singleAction(sentinel: Sentinel): (player: PlayerFacade) => Generator<Sentinel, void, unknown> {
+  return function*() { yield sentinel }
+}
+
 export interface InspectResult {
   occupant: { name: string; glyph: string } | null
   poi: { type: string } | null
@@ -30,15 +34,22 @@ export class Action {
   }
 
   get canCast(): boolean {
+    return this.canCastResult().ok
+  }
+
+  canCastResult(): { ok: boolean; reasons: string[] } {
     const caster = this.world.entities.get(this.world.playerId)
-    if (!caster) return false
+    if (!caster) return { ok: false, reasons: ['player not found'] }
     const ctx = { caster, targets: [this.tile] }
     for (const c of this.ability.components) c.gather?.(this.world, caster, ctx)
+    const reasons: string[] = []
     for (const c of this.ability.components) {
       const result = c.canCast?.(this.world, caster, ctx)
-      if (result && !result.ok) return false
+      if (result && !result.ok) {
+        reasons.push(...result.reasons)
+      }
     }
-    return true
+    return { ok: reasons.length === 0, reasons }
   }
 
   cast(): Sentinel {

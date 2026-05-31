@@ -25,7 +25,7 @@ export function executeSentinel(world: WorldState, sentinel: Sentinel): ActionRe
   for (const c of ability.components) {
     const result = c.canCast?.(world, caster, ctx)
     if (result && !result.ok) {
-      throw new Error(`cast failed: ${result.reason ?? 'unknown reason'}`)
+      throw new Error(`cast failed: ${result.reasons.join('; ')}`)
     }
   }
 

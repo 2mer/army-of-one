@@ -10,20 +10,20 @@ export class TargetNearestEnemy implements AbilityComponent {
   canCast(world: WorldState, caster: Entity, ctx: ActContext): CanCastResult {
     const targetTile = ctx.targets[0]
     const distance = Math.abs(targetTile - caster.position)
+    const reasons: string[] = []
+
     if (distance > this.range) {
-      return { ok: false, reason: `target outside of ability range (${distance} > ${this.range})` }
+      reasons.push(`target outside of ability range (${distance} > ${this.range})`)
     }
 
     const targetEntity = resolveEntityAt(world, targetTile)
     if (!targetEntity) {
-      return { ok: false, reason: 'no entity at target tile' }
+      reasons.push('no entity at target tile')
+    } else if (targetEntity.id === caster.id) {
+      reasons.push('cannot target self')
     }
 
-    if (targetEntity.id === caster.id) {
-      return { ok: false, reason: 'cannot target self' }
-    }
-
-    return { ok: true }
+    return { ok: reasons.length === 0, reasons }
   }
 }
 

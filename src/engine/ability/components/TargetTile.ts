@@ -14,22 +14,23 @@ export class TargetTile implements AbilityComponent {
   canCast(world: WorldState, caster: Entity, ctx: ActContext): CanCastResult {
     const targetTile = ctx.targets[0]
     const expectedTile = caster.position + this.offset
+    const reasons: string[] = []
 
     if (targetTile !== expectedTile) {
-      return { ok: false, reason: `target tile ${targetTile} does not match ability range (expected ${expectedTile})` }
+      reasons.push(`target tile ${targetTile} does not match ability range (expected ${expectedTile})`)
     }
 
-    if (targetTile < 0) return { ok: false, reason: 'target out of bounds' }
+    if (targetTile < 0) reasons.push('target out of bounds')
 
     const tile = world.tiles.get(targetTile)
     if (this.canTargetPredicate && tile && !this.canTargetPredicate(world, { index: tile.index, occupant: tile.occupant })) {
-      return { ok: false, reason: 'target tile does not meet requirements' }
+      reasons.push('target tile does not meet requirements')
     }
 
     if (this.canTargetPredicate && !tile) {
-      return { ok: false, reason: 'target tile does not meet requirements' }
+      reasons.push('target tile does not meet requirements')
     }
 
-    return { ok: true }
+    return { ok: reasons.length === 0, reasons }
   }
 }

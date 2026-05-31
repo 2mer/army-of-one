@@ -8,7 +8,7 @@ export class Cooldown implements AbilityComponent {
   }
 
   canCast(_world: WorldState, _caster: Entity, _ctx: ActContext): CanCastResult {
-    return { ok: true }
+    return { ok: true, reasons: [] }
   }
 
   act(_world: WorldState, caster: Entity, _ctx: ActContext): void {
