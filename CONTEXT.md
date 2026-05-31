@@ -20,7 +20,20 @@ A component that declares an ability targets the nearest enemy within a given ti
 
 ## Damage
 
-A component that declares an ability deals damage of a given type and formula.
+A component that declares an ability deals damage of a given type and amount. Applies the contest-of-strength formula: `finalDamage = max(0, round(baseAmount * (1 + caster_bonus - target_resistance)))`.
+
+## DamageType
+
+Enum: `PHYSICAL` (red ◧), `FIRE` (orange ▲), `SHADOW` (purple ◬). Each entry in `DAMAGE_TYPE_META` carries a `glyph` and `color` used in game log display.
+
+## EntityAttributes
+
+A per-entity record of typed bonuses and resistances. Keys are dynamically derived from `DamageType`: `${type}_resistance` and `${type}_bonus`. Both are floats.
+
+- Resistance: 0 = no reduction, 1 = full immunity. Negative values increase damage taken (e.g. -1 = +100% damage taken). Cannot exceed 1.
+- Bonus: 0 = base damage, 1 = +100% damage. Cannot go below -1 (floor at 0 damage from that instance).
+
+Default attributes are all zeros. Equipment and status effects can modify them later.
 
 ## Cooldown
 

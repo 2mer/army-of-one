@@ -1,5 +1,43 @@
 export type EntityId = number
 
+export enum DamageType {
+  PHYSICAL = 'physical',
+  FIRE = 'fire',
+  SHADOW = 'shadow',
+}
+
+export const DAMAGE_TYPE_META: Record<DamageType, { glyph: string; color: string }> = {
+  [DamageType.PHYSICAL]: { glyph: '◧', color: '#f87171' },
+  [DamageType.FIRE]: { glyph: '▲', color: '#fb923c' },
+  [DamageType.SHADOW]: { glyph: '◬', color: '#c084fc' },
+}
+
+type DamageTypeAttributes = {
+  [K in DamageType as `${K}_resistance`]: number
+} & {
+  [K in DamageType as `${K}_bonus`]: number
+}
+
+export type EntityAttributes = DamageTypeAttributes & {
+  // future stats added here
+}
+
+export function defaultAttributes(): EntityAttributes {
+  return {
+    physical_resistance: 0,
+    physical_bonus: 0,
+    fire_resistance: 0,
+    fire_bonus: 0,
+    shadow_resistance: 0,
+    shadow_bonus: 0,
+  }
+}
+
+export interface LogSegment {
+  text: string
+  color?: string
+}
+
 export interface RenderableComponent {
   type: 'Renderable'
   glyph: string
@@ -50,10 +88,19 @@ export interface LogEntry {
   id: number
   message: string
   type: LogEntryType
+  segments?: LogSegment[]
 }
 
 export function pushLog(world: WorldState, message: string, type: LogEntryType = 'info'): void {
   world.log.push({ id: world._nextLogId++, message, type })
+  if (world.log.length > 100) {
+    world.log.shift()
+  }
+}
+
+export function pushLogSegments(world: WorldState, segments: LogSegment[], type: LogEntryType = 'info'): void {
+  const message = segments.map(s => s.text).join('')
+  world.log.push({ id: world._nextLogId++, message, type, segments })
   if (world.log.length > 100) {
     world.log.shift()
   }
@@ -83,6 +130,7 @@ export interface Entity {
   abilities: AbilityInstance[]
   statusEffects: StatusEffect[]
   equipment: EquipmentSlots
+  attributes: EntityAttributes
 }
 
 export interface CanCastResult {

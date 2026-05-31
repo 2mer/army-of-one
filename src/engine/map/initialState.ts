@@ -1,5 +1,6 @@
 import type { Tile, TileComponent, POI } from '@/engine/core/types'
 import type { WorldState, Entity } from '@/engine/core/types'
+import { DamageType, defaultAttributes } from '@/engine/core/types'
 import { TargetTile } from '@/engine/ability/components/TargetTile'
 import { TargetNearestEnemy } from '@/engine/ability/components/TargetNearestEnemy'
 import { ResourceCost } from '@/engine/ability/components/ResourceCost'
@@ -39,7 +40,7 @@ function createPlayerAbilities() {
         new TargetNearestEnemy(1),
         new ResourceCost([{ type: 'mana', amount: 5 }]),
         new Cooldown(1),
-        new Damage(10),
+        new Damage(DamageType.PHYSICAL, 10),
       ],
       currentCooldown: 0,
       consumeTurn: true,
@@ -74,7 +75,7 @@ function createSlimeAbilities() {
       name: 'Attack',
       components: [
         new TargetNearestEnemy(1),
-        new Damage(5),
+        new Damage(DamageType.PHYSICAL, 5),
       ],
       currentCooldown: 0,
       consumeTurn: true,
@@ -123,6 +124,7 @@ function createPlayerEntity(): Entity {
       ring1: null, ring2: null,
       cape: null, neck: null,
     },
+    attributes: defaultAttributes(),
   }
 }
 
@@ -147,6 +149,7 @@ function createSlimeEntity(index: number): Entity {
       ring1: null, ring2: null,
       cape: null, neck: null,
     },
+    attributes: defaultAttributes(),
   }
 }
 

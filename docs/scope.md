@@ -53,10 +53,11 @@ Vite 8, React 19, TypeScript 6, TailwindCSS v4, shadcn/ui, Pixi.js v8, @monaco-e
 
 ### A. Combat & Abilities
 
-#### A1 — Damage Types & Resistances
-- Multiple damage types (physical, fire, ice, poison, etc.)
-- Characters have per-type resistances (flat or percentage reduction)
-- Resistances can be innate (from entity) or granted by equipment/status effects
+#### A1 ✓ — Damage Types & Resistances
+- DamageType enum: PHYSICAL (red ◧), FIRE (orange ▲), SHADOW (purple ◬)
+- Per-type resistances: percentage-based, applied via `1 + attackerBonus - defenderResistance` formula
+- EntityAttributes captures both `*_bonus` and `*_resistance` per type; defaults to zero
+- Equipment integration deferred to D1
 
 #### A2 — Advanced Ability Components
 - `MultiTarget(count)` — ability hits N enemies (cleave, AoE)

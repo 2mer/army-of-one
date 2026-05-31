@@ -23,7 +23,17 @@ export function GameLog({ entries }: GameLogProps) {
         return (
           <div key={entry.id} className="leading-5" style={{ opacity }}>
             <span className="text-[#555]">{'>'}</span>{' '}
+            {entry.segments ? (
+            <span>
+              {entry.segments.map((seg, j) => (
+                <span key={j} style={seg.color ? { color: seg.color } : { color: TYPE_COLORS[entry.type] }}>
+                  {seg.text}
+                </span>
+              ))}
+            </span>
+          ) : (
             <span style={{ color: TYPE_COLORS[entry.type] }}>{entry.message}</span>
+          )}
           </div>
         )
       })}
