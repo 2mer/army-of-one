@@ -3,6 +3,7 @@ import { pushLog } from '@/engine/core/types'
 import { executeSentinel } from '@/engine/ability/pipeline'
 import { Sentinel, PlayerFacade } from '@/engine/ability/Ability'
 import { processEnemyAI } from './enemyAI'
+import { processHordeTick } from '@/engine/horde/system'
 
 export interface ProcessorState {
   mode: 'idle' | 'auto'
@@ -91,6 +92,8 @@ export class ActionProcessor {
     if (!this.generator) return
 
     try {
+      const playerBefore = this.world.entities.get(this.world.playerId)?.position ?? 0
+
       const { value: sentinel, done } = this.generator.next()
 
       if (done) {
@@ -111,6 +114,11 @@ export class ActionProcessor {
           pushLog(this.world, `Enemy AI error: ${e instanceof Error ? e.message : e}`, 'error')
         }
         this.checkPlayerDeath()
+
+        const playerAfter = this.world.entities.get(this.world.playerId)?.position ?? 0
+        const playerDelta = playerAfter - playerBefore
+        processHordeTick(this.world, playerDelta)
+
         this.world.turn++
       }
     } catch (e) {

@@ -77,20 +77,19 @@ Vite 8, React 19, TypeScript 6, TailwindCSS v4, shadcn/ui, Pixi.js v8, @monaco-e
 
 ### B. Horde System
 
-#### B1 — Full Horde Generation
-- The "virtual horde": only first 3 enemies act at a time, rest queue behind
-- When an enemy dies, the next in the queue fills in
-- Procedural generation rules for bulk enemies
-- Static overrides at specific indices (e.g. boss at depth 100)
-- "Blanks" — break periods between enemy clusters
-- Cool patterns (alternating enemy types, formations)
+#### B1 ✓ — Full Horde Generation
+- Horde queue: 100 indexed entries (slime clusters + blank gaps) plus shadow slime fallback
+- Only 3 enemies active at a time; spawn at `playerPos + viewRange`
+- Blanks add tiles to distance counter, creating natural gaps between clusters
+- Spawns one enemy per turn when distance ≤ viewRange and field has room
+- Shadow slime (999 HP, 999999 shadow damage) at index 100+ acts as soft cap
 
-#### B2 — Horde Advancement
-- The player has 100 "blanks" before the horde reaches index 0 (the king)
-- Each turn the horde advances one tile (if not blocked by player)
-- Player can retreat — horde follows
-- Game ends when player dies, not when king dies
-- King at index 0 is a narrative/logic element, not a defense target
+#### B2 ✓ — Horde Advancement
+- Distance counter ticks down each turn: -1 base, -2 if player moves right, net 0 if player moves left
+- Enemies approach player via existing AI (MoveBack ability moves left)
+- When an enemy dies, next queue entry is processed (spawn or blank gap)
+- King at index 0 is a narrative POI (glyph ♛)
+- Game ends when player dies
 
 #### B3 — Advanced Enemy AI
 - Boss behaviors (scripted attack patterns, phase transitions)

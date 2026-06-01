@@ -49,38 +49,62 @@ The root game state object. Contains:
 - `entities: Map<EntityId, Entity>` — all characters (player and enemies), keyed by ID
 - `playerId: EntityId` — references the player within `entities`
 - `tiles: Map<number, Tile>` — sparse; only materialised tiles
-- `turn: number` — global turn counter, starts at 1
+- `turn: number` — global turn counter
 - `gameResult: 'playing' | 'won' | 'lost'`
+- `horde: HordeState` — horde advancement state
+- `_nextEntityId: number` — auto-incrementing counter for entity IDs
+- `_nextLogId: number` — auto-incrementing counter for log entry IDs
 
 ## Entity
 
 A character in the game. Player and enemies share the same `Entity` type.
 
-Fields: `id: EntityId`, `name: string`, `glyph: string` (rendering character), `hp: number`, `maxHp: number`, `mana: number`, `maxMana: number`, `position: number` (map index), `viewRange: number` (tiles observable in each direction), `abilities: AbilityInstance[]`, `statusEffects: StatusEffect[]`, `equipment: EquipmentSlots`.
+Fields: `id: EntityId`, `name: string`, `glyph: string` (rendering character), `hp: number`, `maxHp: number`, `mana: number`, `maxMana: number`, `position: number` (map index), `viewRange: number` (tiles observable in each direction), `abilities: AbilityInstance[]`, `statusEffects: StatusEffect[]`, `equipment: EquipmentSlots`, `attributes: EntityAttributes`.
 
-Default player stats: HP 100, Mana 50, viewRange 5, glyph `@`. Default slime stats: HP 30, Mana 0, viewRange 0, glyph `s`.
+Default player stats: HP 100, Mana 50, viewRange 5, glyph `@`, start position 5. Default slime stats: HP 30, Mana 0, viewRange 0, glyph `⯊`.
+
+## HordeState
+
+Tracks the virtual horde queue. Fields:
+- `pointer: number` — current index in the horde queue
+- `distance: number` — tiles until the next unprocessed horde entry reaches the player
+- `activeEnemies: EntityId[]` — entity IDs of enemies currently on the field
+- `lastPlayerPosition: number` — player position at end of last turn
+
+## Horde queue
+
+100 indexed entries define the enemy sequence. Each entry is either a monster (with name, glyph, stats, damage type/amount) or a blank (adds N tiles of distance). Beyond index 99, returns a Shadow Slime (999 HP, 999999 shadow damage) as a soft cap.
+
+Built procedurally in `src/engine/horde/queue.ts` with alternating clusters of green/red/blue slimes separated by blank gaps.
+
+## processHordeTick
+
+Called after each player action (after enemy AI). Each tick:
+1. Cleans dead enemies from `activeEnemies`
+2. Decrements distance: base -1, extra -1 if player moved right, +1 if player moved left (cancels advance)
+3. If `activeEnemies.length < 3` and `distance <= player.viewRange`: processes next queue entry
+   - Monster: spawns at `playerPos + viewRange + activeCount`, added to activeEnemies
+   - Blank: adds tiles to distance (no spawn)
+   - At most one entry processed per tick
+
+## Distance formula
+
+distance adjusts each turn based on player movement:
+- Player stays: `distance -= 1` (enemy advances)
+- Player moves right: `distance -= 2` (player closes gap from other side)
+- Player moves left: `distance -= 0` (enemy advance cancels with player retreat)
+
+Clamped to >= 0. When distance reaches 0, the next monster spawns at the edge of the player's viewRange.
 
 ## Tile
 
-A position on the map. Fields: `index: number`, `occupant: EntityId | null`, `components: TileComponent[]`. The renderer draws the tile's Renderable component first, then overlays the occupant entity's glyph on top. Occupied tiles may have reduced opacity.
+A position on the map. Fields: `index: number`, `occupant: EntityId | null`, `components: TileComponent[]`. The renderer draws the tile's Renderable component first, then overlays the occupant entity's glyph on top.
 
-Tiles are materialised lazily like Minecraft chunks — only created when they come into view. Once materialised they persist in `world.tiles`.
+Tiles are materialised on-demand by MoveToTile. Initial render window is tiles 0-10.
 
 ## POI (Point of Interest)
 
-A blueprint for what exists at a world index. Returned by `getPoiAtWorldIndex(index: number)`. Static POIs (bosses, shops, win tiles) are looked up from a `Map<number, POI>`; otherwise a procedural rule generates the POI (e.g. "indices 1-5 are blanks, 6-8 have slimes").
-
-Example POI types: `'blank'`, `'spawn'`, `'slime'`, `'win'`, `'shop'`, `'boss'`, `'gate'`.
-
-Materialising a POI creates a Tile (and optionally an Entity for enemy POIs) and adds them to WorldState.
-
-## Horde generation
-
-Two lookup functions:
-- `getPoiAtWorldIndex(i: number): POI` — returns the POI at a map index, with static entries taking priority over procedural fallback.
-- `getEnemyAtHordeIndex(i: number): EnemyBlueprint` — returns an enemy definition for enemy POIs.
-
-Procedural rules for the first slice: indices 1-5 → blank, 6-8 → slime, 9 → blank, 10 → win. Everything else → blank.
+A blueprint for what exists at a world index. Types: `'blank'`, `'king'`, `'win'`. The king tile at index 0 is a narrative element. The win tile at index 1000 is unreachable in MVP. Everything else is blank. Enemies come from the horde system, not from POIs.
 
 ## EntityId
 
@@ -118,13 +142,11 @@ A player ability with zero components. Always succeeds, consumes a turn, does no
 
 | Index | Content | Glyph |
 |-------|---------|-------|
-| 0 | Player spawn | `@` |
-| 1-5 | Empty floor | `.` |
-| 6 | Slime | `s` |
-| 7 | Slime | `s` |
-| 8 | Slime | `s` |
-| 9 | Empty floor | `.` |
-| 10 | Win tile | `>` |
+| 0 | King (narrative) | `♛` |
+| 1-4 | Empty floor | `.` |
+| 5 | Player start | `@` |
+| 6-10 | Empty floor (first enemies spawn at 10-12) | `.` |
+| 1000 | Win tile (unreachable MVP) | `>` |
 
 ## Turn order
 
@@ -168,11 +190,20 @@ A token object returned by action methods like `cast()`. If not yielded, the act
 
 ## Slime
 
-Basic enemy type. Shares the same entity/ability/pipeline model as the player. Simple AI: if an adjacent tile in the player's direction is occupied by an entity (friendly or player), use its attack ability; else use its move ability. If neither is possible, skip turn.
+Basic enemy type. Spawned by the horde system. Shares the same entity/ability/pipeline model as the player. Simple AI: if an adjacent tile in the player's direction is occupied by an entity (friendly or player), use its attack ability; else use its move ability.
 
-## Horde turn processing
+Three slime variants in the first 100 horde entries:
+- **Green Slime**: 30 HP, physical damage 5
+- **Red Slime**: 40 HP, physical damage 8
+- **Blue Slime**: 25 HP, fire damage 6
 
-All entities (player and enemies) act in map-index order (ascending). Each entity executes its script/AI for exactly one action per turn. The turn ends when all living entities have acted.
+Beyond index 99: **Shadow Slime** (999 HP, 999999 shadow damage) acting as a soft cap.
+
+## Turn order
+
+1. Player action executes (scripts drive one sentinel per turn)
+2. Enemy AI processes each living non-player entity (moves toward player, attacks if adjacent)
+3. Horde tick processes distance and spawning
 
 ## ActContext
 
@@ -188,12 +219,12 @@ Three phases executed in order:
 
 ## Action processor
 
-The engine's central loop that drives turns. Uses `requestAnimationFrame` loop with a 150ms delay between actions (configurable in the future via speed controls). Flow:
+The engine's central loop that drives turns. Uses `requestAnimationFrame` loop with a 200ms delay between actions (configurable in the future via speed controls). Flow:
 
 1. Player has active generator → step it → yields a Sentinel
 2. Dispatch sentinel to ability pipeline (gather → canCast → act) → action result includes `{ consumeTurn: boolean }`
 3. If `consumeTurn: false` → immediately step generator again (same player turn)
-4. If `consumeTurn: true` → for each living enemy, compute and dispatch one AI action → begin a new turn → step generator again
+4. If `consumeTurn: true` → for each living enemy, compute and dispatch one AI action → call `processHordeTick` with player movement delta → begin a new turn → step generator again
 5. When generator has no next value → go idle
 
 Only one generator can be active at a time. Calling `act()` while a generator is active throws.

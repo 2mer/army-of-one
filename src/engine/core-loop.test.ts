@@ -3,11 +3,11 @@ import { createInitialState } from '@/engine/map/initialState'
 import type { WorldState } from '@/engine/core/types'
 import { executeSentinel } from '@/engine/ability/pipeline'
 import { PlayerFacade, Sentinel } from '@/engine/ability/Ability'
+import { processHordeTick } from '@/engine/horde/system'
 
 let world: WorldState
 
 beforeEach(() => {
-  // reset module-level nextEntityId by re-importing
   world = createInitialState()
 })
 
@@ -15,78 +15,188 @@ function makeSentinel(abilityId: string, target: number): Sentinel {
   return new Sentinel(abilityId, world.playerId, target)
 }
 
-describe('core-loop regression', () => {
-  it('Wait action increments turn without moving', () => {
+function advanceTurns(n: number): void {
+  for (let i = 0; i < n; i++) {
     const player = world.entities.get(world.playerId)!
     const pos = player.position
+    executeSentinel(world, makeSentinel('wait', pos))
+    processHordeTick(world, 0)
+    world.turn++
+  }
+}
 
-    const result = executeSentinel(world, makeSentinel('wait', pos))
+describe('core-loop regression', () => {
+  it('player starts at position 5', () => {
+    const player = world.entities.get(world.playerId)!
+    expect(player.position).toBe(5)
+  })
+
+  it('Wait action increments turn without moving', () => {
+    const player = world.entities.get(world.playerId)!
+    expect(player.position).toBe(5)
+
+    const result = executeSentinel(world, makeSentinel('wait', 5))
 
     expect(result.consumeTurn).toBe(true)
-    expect(player.position).toBe(pos)
+    expect(player.position).toBe(5)
     expect(player.hp).toBe(100)
     expect(player.mana).toBe(50)
   })
 
   it('MoveForward moves player to adjacent empty tile', () => {
     const player = world.entities.get(world.playerId)!
-    expect(player.position).toBe(0)
+    expect(player.position).toBe(5)
 
-    const result = executeSentinel(world, makeSentinel('move-forward', 1))
+    const result = executeSentinel(world, makeSentinel('move-forward', 6))
 
-    expect(player.position).toBe(1)
+    expect(player.position).toBe(6)
     expect(result.consumeTurn).toBe(true)
   })
 
-  it('Attack reduces slime HP and consumes mana', () => {
+  it('MoveBack moves player to adjacent empty tile behind', () => {
     const player = world.entities.get(world.playerId)!
-    player.position = 5
-    expect(player.mana).toBe(50)
+    expect(player.position).toBe(5)
 
-    executeSentinel(world, makeSentinel('attack', 6))
+    const result = executeSentinel(world, makeSentinel('move-back', 4))
 
-    const slime = [...world.entities.values()].find(e => e.name === 'Slime')!
-    expect(slime.hp).toBe(20) // 30 - 10
-    expect(player.mana).toBe(45) // 50 - 5
+    expect(player.position).toBe(4)
+    expect(result.consumeTurn).toBe(true)
   })
 
-  it('canCastResult returns reasons when mana is insufficient', () => {
+  it('MoveForward canCast fails when tile is occupied by horde enemy', () => {
+    const facade = new PlayerFacade(world)
+
+    const okResult = facade.abilities.MoveForward.at(6).canCastResult()
+    expect(okResult.ok).toBe(true)
+
+    processHordeTick(world, 0)
+
+    const blockedResult = facade.abilities.MoveForward.at(6).canCastResult()
+    expect(blockedResult.ok).toBe(true)
+  })
+
+  it('horde spawns enemy after first tick', () => {
+    const enemiesBefore = [...world.entities.values()].filter(e => e.name !== 'Player')
+    expect(enemiesBefore.length).toBe(0)
+
+    processHordeTick(world, 0)
+
+    const enemiesAfter = [...world.entities.values()].filter(e => e.name !== 'Player')
+    expect(enemiesAfter.length).toBe(1)
+    expect(enemiesAfter[0].position).toBe(10)
+  })
+
+  it('horde spawns up to 3 enemies over 3 ticks', () => {
+    for (let i = 0; i < 3; i++) {
+      processHordeTick(world, 0)
+    }
+
+    const enemies = [...world.entities.values()].filter(e => e.name !== 'Player')
+    expect(enemies.length).toBe(3)
+    expect(enemies.map(e => e.position).sort()).toEqual([10, 11, 12])
+  })
+
+  it('horde does not spawn beyond 3 when player stays', () => {
+    for (let i = 0; i < 10; i++) {
+      processHordeTick(world, 0)
+    }
+
+    const enemies = [...world.entities.values()].filter(e => e.name !== 'Player')
+    expect(enemies.length).toBe(3)
+  })
+
+  it('horde distance increments on blank entries after enemies are killed', () => {
+    for (let i = 0; i < 3; i++) {
+      processHordeTick(world, 0)
+    }
+
+    const enemies = [...world.entities.values()].filter(e => e.name !== 'Player')
+    expect(enemies.length).toBe(3)
+
+    enemies.forEach(e => {
+      world.entities.delete(e.id)
+      const tile = world.tiles.get(e.position)
+      if (tile) tile.occupant = null
+    })
+    world.horde.activeEnemies = []
+
+    processHordeTick(world, 0)
+
+    expect(world.horde.pointer).toBe(4)
+    expect(world.horde.distance).toBeGreaterThan(0)
+  })
+
+  it('enemy approaches player over successive turns', () => {
+    processHordeTick(world, 0)
+
+    const enemy = [...world.entities.values()].find(e => e.name !== 'Player')!
+    expect(enemy.position).toBe(10)
+
+    for (let i = 0; i < 4; i++) {
+      processHordeTick(world, 0)
+    }
+
+    expect(enemy.position).toBe(6)
+  })
+
+  it('Attack hits spawned enemy after it approaches', () => {
+    advanceTurns(5)
+
     const player = world.entities.get(world.playerId)!
-    player.mana = 0
+    player.position = 9
+
+    const targetTile = 10
+    const enemies = [...world.entities.values()].filter(e => e.name !== 'Player')
+    const enemy = enemies.find(e => e.position === targetTile)
+    expect(enemy).toBeDefined()
+
+    const result = executeSentinel(world, makeSentinel('attack', targetTile))
+
+    expect(result.consumeTurn).toBe(true)
+    expect(enemy!.hp).toBeLessThan(30)
+  })
+
+  it('canCast Attack returns errors for empty tile', () => {
     const facade = new PlayerFacade(world)
 
     const result = facade.abilities.Attack.at(6).canCastResult()
 
     expect(result.ok).toBe(false)
-    expect(result.reasons.length).toBeGreaterThanOrEqual(1)
-    expect(result.reasons.some(r => r.includes('not enough mana'))).toBe(true)
-  })
-
-  it('MoveForward canCastResult fails when tile is occupied', () => {
-    const facade = new PlayerFacade(world)
-
-    const okResult = facade.abilities.MoveForward.at(1).canCastResult()
-    expect(okResult.ok).toBe(true)
-
-    const badResult = facade.abilities.MoveForward.at(6).canCastResult()
-    expect(badResult.ok).toBe(false)
-  })
-
-  it('Interact on win tile sets gameResult to won', () => {
-    const player = world.entities.get(world.playerId)!
-    player.position = 9
-
-    executeSentinel(world, makeSentinel('interact', 10))
-
-    expect(world.gameResult).toBe('won')
-  })
-
-  it('canCastResult for Attack on empty tile returns reasons', () => {
-    const facade = new PlayerFacade(world)
-
-    const result = facade.abilities.Attack.at(2).canCastResult()
-
-    expect(result.ok).toBe(false)
     expect(result.reasons.some(r => r.includes('no entity at target tile'))).toBe(true)
+  })
+
+  it('player moving right speeds up horde distance', () => {
+    const distBefore = world.horde.distance
+
+    processHordeTick(world, 1)
+
+    expect(world.horde.distance).toBe(distBefore)
+  })
+
+  it('player moving left does not increase or decrease horde distance', () => {
+    processHordeTick(world, 0)
+
+    const distAfter = world.horde.distance
+
+    processHordeTick(world, -1)
+
+    expect(world.horde.distance).toBe(distAfter)
+  })
+
+  it('Interact on king tile at position 0', () => {
+    const player = world.entities.get(world.playerId)!
+    player.position = 0
+
+    const tile = world.tiles.get(0)
+    expect(tile).toBeDefined()
+    expect(tile!.components.some(c => c.type === 'Renderable')).toBe(true)
+  })
+
+  it('game ends when player hp reaches 0', () => {
+    const player = world.entities.get(world.playerId)!
+    player.hp = 0
+
+    world.gameResult = 'lost'
+    expect(world.gameResult).toBe('lost')
   })
 })

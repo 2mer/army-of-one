@@ -54,7 +54,7 @@ export interface InteractableComponent {
 export type TileComponent = RenderableComponent | InteractableComponent
 
 export interface POI {
-  type: 'blank' | 'spawn' | 'win'
+  type: 'blank' | 'king' | 'win'
 }
 
 export interface Tile {
@@ -106,6 +106,13 @@ export function pushLogSegments(world: WorldState, segments: LogSegment[], type:
   }
 }
 
+export interface HordeState {
+  pointer: number
+  distance: number
+  activeEnemies: number[]
+  lastPlayerPosition: number
+}
+
 export interface WorldState {
   entities: Map<EntityId, Entity>
   playerId: EntityId
@@ -114,6 +121,8 @@ export interface WorldState {
   gameResult: 'playing' | 'won' | 'lost'
   log: LogEntry[]
   _nextLogId: number
+  _nextEntityId: number
+  horde: HordeState
 }
 
 export interface Entity {
