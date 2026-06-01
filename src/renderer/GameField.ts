@@ -1,5 +1,6 @@
 import { Application, Container, Text, Graphics } from 'pixi.js'
 import type { WorldState, Tile, RenderableComponent } from '@/engine/core/types'
+import { getHordeEntry } from '@/engine/horde/queue'
 
 const TILE_SIZE = 24
 const FONT_SIZE = 18
@@ -16,9 +17,11 @@ export class GameField {
   private tileContainer: Container
   private entityContainer: Container
   private highlightContainer: Container
+  private virtualHordeContainer: Container
   private tileSprites: Map<number, Text> = new Map()
   private entitySprites: Map<number, Text> = new Map()
   private highlightSprites: Map<number, Graphics> = new Map()
+  private virtualHordeSprites: Map<number, Text> = new Map()
   private interactive: boolean = false
   private onTileClickCb: TileClickCallback | null = null
   private onTileHoverCb: TileHoverCallback | null = null
@@ -32,9 +35,12 @@ export class GameField {
     this.app = app
     this.highlightContainer = new Container()
     this.tileContainer = new Container()
+    this.virtualHordeContainer = new Container()
+    this.virtualHordeContainer.alpha = 0.5
     this.entityContainer = new Container()
     app.stage.addChild(this.highlightContainer)
     app.stage.addChild(this.tileContainer)
+    app.stage.addChild(this.virtualHordeContainer)
     app.stage.addChild(this.entityContainer)
 
     this._boundPointerDown = (e: PointerEvent) => this.handlePointerDown(e)
@@ -79,6 +85,7 @@ export class GameField {
     const player = world.entities.get(world.playerId)
     this.playerPosition = player?.position ?? 0
     this.renderTiles(world)
+    this.renderVirtualHorde(world)
     this.renderEntities(world)
   }
 
@@ -226,6 +233,76 @@ export class GameField {
       }
       this.entitySprites.delete(staleId)
     }
+  }
+
+  private renderVirtualHorde(world: WorldState): void {
+    const player = world.entities.get(world.playerId)
+    if (!player) { this.clearVirtualHorde(); return }
+
+    const horde = world.horde
+    if (horde.activeEnemies.length === 0) { this.clearVirtualHorde(); return }
+
+    let rightmostPos = -Infinity
+    for (const id of horde.activeEnemies) {
+      const e = world.entities.get(id)
+      if (e && e.position > rightmostPos) rightmostPos = e.position
+    }
+
+    const endTile = player.position + player.viewRange
+    if (rightmostPos === -Infinity || rightmostPos > endTile) {
+      this.clearVirtualHorde()
+      return
+    }
+
+    const startTile = rightmostPos + 1
+    const newPositions = new Set<number>()
+    let entryOffset = 0
+    let pos = startTile
+
+    while (pos <= endTile) {
+      const entry = getHordeEntry(horde.pointer + entryOffset)
+      if (entry.type === 'monster') {
+        newPositions.add(pos)
+        let sprite = this.virtualHordeSprites.get(pos)
+        if (!sprite) {
+          sprite = new Text({
+            text: entry.spec.glyph,
+            style: {
+              fontFamily: FONT_FAMILY,
+              fontSize: FONT_SIZE,
+              fill: entry.spec.glyphColor,
+              fontWeight: 'bold',
+            },
+          })
+          sprite.anchor.set(0.5)
+          this.virtualHordeContainer.addChild(sprite)
+          this.virtualHordeSprites.set(pos, sprite)
+        }
+        const screen = this.tileToScreen(world, pos)
+        sprite.position.set(screen.x, screen.y)
+        pos++
+        entryOffset++
+      } else {
+        pos += entry.tiles
+        entryOffset++
+      }
+    }
+
+    for (const [pos, sprite] of this.virtualHordeSprites) {
+      if (!newPositions.has(pos)) {
+        this.virtualHordeContainer.removeChild(sprite)
+        sprite.destroy()
+        this.virtualHordeSprites.delete(pos)
+      }
+    }
+  }
+
+  private clearVirtualHorde(): void {
+    for (const [pos, sprite] of this.virtualHordeSprites) {
+      this.virtualHordeContainer.removeChild(sprite)
+      sprite.destroy()
+    }
+    this.virtualHordeSprites.clear()
   }
 
   private createTileGlyph(renderable: RenderableComponent): Text {

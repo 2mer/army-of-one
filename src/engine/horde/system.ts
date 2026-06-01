@@ -104,19 +104,24 @@ export function processHordeTick(world: WorldState, playerDelta: number): void {
   const entry = getHordeEntry(horde.pointer)
 
   if (horde.activeEnemies.length > 0) {
-    horde.pointer++
-    if (entry.type === 'blank') {
-      horde.distance += entry.tiles
-      return
-    }
     let maxPos = -Infinity
     for (const id of horde.activeEnemies) {
       const e = world.entities.get(id)
       if (e && e.position > maxPos) maxPos = e.position
     }
-    spawnHordeMonster(world, entry.spec, maxPos + 1)
-    horde.activeEnemies.push(world._nextEntityId - 1)
-    return
+    let spawnPos = maxPos + 1
+    let entryOffset = 0
+    while (true) {
+      const e = getHordeEntry(horde.pointer + entryOffset)
+      if (e.type === 'monster') {
+        spawnHordeMonster(world, e.spec, spawnPos)
+        horde.activeEnemies.push(world._nextEntityId - 1)
+        horde.pointer += entryOffset + 1
+        return
+      }
+      spawnPos += e.tiles
+      entryOffset++
+    }
   }
 
   if (horde.distance > player.viewRange) return

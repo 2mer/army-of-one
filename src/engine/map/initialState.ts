@@ -1,6 +1,8 @@
 import type { Tile, TileComponent, POI } from '@/engine/core/types'
 import type { WorldState, Entity, HordeState } from '@/engine/core/types'
 import { DamageType, defaultAttributes } from '@/engine/core/types'
+import { getHordeEntry } from '@/engine/horde/queue'
+import { spawnHordeMonster } from '@/engine/horde/system'
 import { TargetTile } from '@/engine/ability/components/TargetTile'
 import { TargetNearestEnemy } from '@/engine/ability/components/TargetNearestEnemy'
 import { ResourceCost } from '@/engine/ability/components/ResourceCost'
@@ -89,7 +91,7 @@ function createPlayerEntity(): Entity {
 		mana: 50,
 		maxMana: 50,
 		position: 5,
-		viewRange: 5,
+		viewRange: 50,
 		abilities: createPlayerAbilities(),
 		statusEffects: [],
 		equipment: {
@@ -157,7 +159,7 @@ export function createInitialState(): WorldState {
 	const player = createPlayerEntity()
 	world.entities.set(player.id, player)
 
-	for (let i = 0; i <= 10; i++) {
+	for (let i = 0; i <= 60; i++) {
 		const poi = getPOI(i)
 		const tile = materialiseTile(i, poi)
 		world.tiles.set(i, tile)
@@ -165,6 +167,13 @@ export function createInitialState(): WorldState {
 
 	const playerTile = world.tiles.get(player.position)
 	if (playerTile) playerTile.occupant = player.id
+
+	const firstEntry = getHordeEntry(0)
+	if (firstEntry.type === 'monster') {
+		spawnHordeMonster(world, firstEntry.spec, 10)
+		world.horde.activeEnemies.push(world._nextEntityId - 1)
+		world.horde.pointer = 1
+	}
 
 	return world
 }
