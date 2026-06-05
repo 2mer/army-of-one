@@ -276,6 +276,9 @@ export class GameField {
           sprite.anchor.set(0.5)
           this.virtualHordeContainer.addChild(sprite)
           this.virtualHordeSprites.set(pos, sprite)
+        } else {
+          sprite.text = entry.spec.glyph
+          sprite.style.fill = entry.spec.glyphColor
         }
         const screen = this.tileToScreen(world, pos)
         sprite.position.set(screen.x, screen.y)

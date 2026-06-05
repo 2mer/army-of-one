@@ -12,7 +12,7 @@ import { singleAction, PlayerFacade, Sentinel } from '@/engine/ability/Ability'
 import { pushLog } from '@/engine/core/types'
 import { getPOI } from '@/engine/map/initialState'
 import type { ProcessorState } from '@/engine/processor/ActionProcessor'
-import { materializeHorde } from '@/debug/hordeDebug'
+import { materializeHorde, resolveVirtualHorde, fullHordeDebug } from '@/debug/hordeDebug'
 
 interface DialState {
 	x: number
@@ -49,6 +49,8 @@ function useGameState() {
 		const debug = {
 			world: () => world,
 			horde: (count = 20) => materializeHorde(world, count),
+			virtual: () => resolveVirtualHorde(world),
+			full: (count = 20) => fullHordeDebug(world, count),
 		}
 			; (window as any).__debug = debug
 		return () => { delete (window as any).__debug }
