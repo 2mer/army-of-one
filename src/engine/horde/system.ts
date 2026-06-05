@@ -92,6 +92,17 @@ export function processHordeTick(world: WorldState, playerDelta: number): void {
     return e && e.hp > 0
   })
 
+  if (horde.activeEnemies.length > 0) {
+    let farthestPos = -Infinity
+    for (const id of horde.activeEnemies) {
+      const e = world.entities.get(id)
+      if (e && e.position > farthestPos) farthestPos = e.position
+    }
+    if (farthestPos === horde.lastFarthestEnemyPos) {
+      horde.delay++
+    }
+  }
+
   let dist = horde.distance
   dist = Math.max(0, dist - 1)
   if (playerDelta > 0) dist = Math.max(0, dist - 1)
@@ -99,9 +110,15 @@ export function processHordeTick(world: WorldState, playerDelta: number): void {
 
   horde.distance = dist
 
-  if (horde.activeEnemies.length >= 3) return
-
-  const entry = getHordeEntry(horde.pointer)
+  if (horde.activeEnemies.length >= 3) {
+    let fp = -Infinity
+    for (const id of horde.activeEnemies) {
+      const e = world.entities.get(id)
+      if (e && e.position > fp) fp = e.position
+    }
+    horde.lastFarthestEnemyPos = fp
+    return
+  }
 
   if (horde.activeEnemies.length > 0) {
     let maxPos = -Infinity
@@ -117,23 +134,45 @@ export function processHordeTick(world: WorldState, playerDelta: number): void {
         spawnHordeMonster(world, e.spec, spawnPos)
         horde.activeEnemies.push(world._nextEntityId - 1)
         horde.pointer += entryOffset + 1
+        horde.lastFarthestEnemyPos = spawnPos
         return
       }
-      spawnPos += e.tiles
-      entryOffset++
+      if (horde.delay > 0) {
+        horde.delay--
+        entryOffset++
+      } else {
+        spawnPos++
+        entryOffset++
+      }
     }
   }
 
   if (horde.distance > player.viewRange) return
 
+  while (horde.delay > 0) {
+    const e = getHordeEntry(horde.pointer)
+    if (e.type === 'monster') {
+      horde.pointer++
+      const spawnPos = player.position + player.viewRange
+      spawnHordeMonster(world, e.spec, spawnPos)
+      horde.activeEnemies.push(world._nextEntityId - 1)
+      horde.lastFarthestEnemyPos = spawnPos
+      return
+    }
+    horde.delay--
+    horde.pointer++
+  }
+
+  const entry = getHordeEntry(horde.pointer)
   horde.pointer++
 
   if (entry.type === 'blank') {
-    horde.distance += entry.tiles
+    horde.distance += 1
     return
   }
 
   const spawnPos = player.position + player.viewRange
   spawnHordeMonster(world, entry.spec, spawnPos)
   horde.activeEnemies.push(world._nextEntityId - 1)
+  horde.lastFarthestEnemyPos = spawnPos
 }

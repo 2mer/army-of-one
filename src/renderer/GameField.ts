@@ -101,7 +101,6 @@ export class GameField {
   }
 
   private handlePointerMove(e: PointerEvent): void {
-    if (!this.interactive) return
     const x = this.canvasX(e.clientX)
     const tileIndex = this.screenToTile(x)
     if (tileIndex !== this._hoveredTile) {
@@ -254,10 +253,10 @@ export class GameField {
       return
     }
 
-    const startTile = rightmostPos + 1
     const newPositions = new Set<number>()
+    let remaining = horde.delay
     let entryOffset = 0
-    let pos = startTile
+    let pos = rightmostPos + 1
 
     while (pos <= endTile) {
       const entry = getHordeEntry(horde.pointer + entryOffset)
@@ -283,8 +282,13 @@ export class GameField {
         pos++
         entryOffset++
       } else {
-        pos += entry.tiles
-        entryOffset++
+        if (remaining > 0) {
+          remaining--
+          entryOffset++
+        } else {
+          pos++
+          entryOffset++
+        }
       }
     }
 

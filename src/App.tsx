@@ -5,12 +5,14 @@ import { createInitialState } from '@/engine/map/initialState'
 import { HUD } from '@/ui/components/HUD'
 import { GameLog } from '@/ui/components/GameLog'
 import { ScriptIndicator } from '@/ui/components/ScriptIndicator'
-import { ScriptEditor } from '@/ui/editor/ScriptEditor'
+import { ScriptEditor, DEFAULT_SCRIPT } from '@/ui/editor/ScriptEditor'
 import { RadialDial } from '@/ui/components/RadialDial'
 import type { DialAbility } from '@/ui/components/RadialDial'
 import { singleAction, PlayerFacade, Sentinel } from '@/engine/ability/Ability'
+import { pushLog } from '@/engine/core/types'
 import { getPOI } from '@/engine/map/initialState'
 import type { ProcessorState } from '@/engine/processor/ActionProcessor'
+import { materializeHorde } from '@/debug/hordeDebug'
 
 interface DialState {
 	x: number
@@ -43,15 +45,55 @@ function useGameState() {
 		})
 	}, [processor])
 
+	useEffect(() => {
+		const debug = {
+			world: () => world,
+			horde: (count = 20) => materializeHorde(world, count),
+		}
+		;(window as any).__debug = debug
+		return () => { delete (window as any).__debug }
+	}, [world])
+
 	return { world, processor, mode, paused, tick, editorMainView, setEditorMainView, dial, setDial, hover, setHover }
 }
 
 function App() {
 	const canvasRef = useRef<HTMLDivElement>(null)
 	const fieldRef = useRef<GameField | null>(null)
+	const scriptCodeRef = useRef(DEFAULT_SCRIPT)
 	const { world, processor, mode, paused, tick, editorMainView, setEditorMainView, dial, setDial, hover, setHover } = useGameState()
 
 	const isInteractive = mode === 'idle' || (mode === 'auto' && paused)
+
+	const handleRunScript = useCallback(() => {
+		if (!processor) return
+		const code = scriptCodeRef.current
+		if (!code) return
+
+		if (processor.mode === 'auto') {
+			processor.stop()
+		}
+
+		const waitForInput = () => new Promise<KeyboardEvent>(resolve => {
+			const handler = (e: KeyboardEvent) => {
+				window.removeEventListener('keydown', handler)
+				resolve(e)
+			}
+			window.addEventListener('keydown', handler)
+		})
+
+		try {
+			const factory = new Function('act', 'waitForInput', code)
+			factory(
+				(fn: (player: PlayerFacade) => Generator<Sentinel, void, unknown> | AsyncGenerator<Sentinel, void, unknown>) => {
+					processor.act(fn)
+				},
+				waitForInput,
+			)
+		} catch (e) {
+			pushLog(processor.world, `Script compile error: ${e instanceof Error ? e.message : e}`, 'error')
+		}
+	}, [processor])
 
 	const handleTileClickRef = useRef<((tileIndex: number, screenX: number, screenY: number) => void) | null>(null)
 
@@ -139,11 +181,10 @@ function App() {
 		f.setInteractive(isInteractive)
 		if (isInteractive) {
 			f.onTileClick((t, sx, sy) => handleTileClickRef.current?.(t, sx, sy))
-			f.onTileHover(handleTileHover)
 		} else {
 			f.onTileClick(null)
-			f.onTileHover(null)
 		}
+		f.onTileHover(handleTileHover)
 	}, [isInteractive, handleTileHover])
 
 	const statusBar = (
@@ -165,7 +206,7 @@ function App() {
 				{editorMainView ? (
 					<>
 						<div className="flex-1 flex flex-col min-h-0">
-							<ScriptEditor processor={processor} mode={mode} />
+							<ScriptEditor processor={processor} mode={mode} onCodeChange={(v) => { scriptCodeRef.current = v }} onRun={handleRunScript} />
 						</div>
 						<div className="w-80 border-l border-[#333] flex flex-col bg-[#1a1a22] min-h-0">
 							{statusBar}
@@ -217,11 +258,9 @@ function App() {
 								<HUD world={world} />
 							</div>
 
-							{mode === 'auto' && (
-								<div className="absolute top-2 right-2 z-10">
-									<ScriptIndicator processor={processor} paused={paused} />
-								</div>
-							)}
+							<div className="absolute top-2 right-2 z-10">
+								<ScriptIndicator processor={processor} paused={paused} onRun={handleRunScript} />
+							</div>
 
 							{hover && (() => {
 								const tile = world.tiles.get(hover.tileIndex)

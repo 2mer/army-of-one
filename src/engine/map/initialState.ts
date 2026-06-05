@@ -135,12 +135,14 @@ function materialiseTile(index: number, poi: POI): Tile {
 }
 
 function createHordeState(): HordeState {
-	return {
-		pointer: 0,
-		distance: 0,
-		activeEnemies: [],
-		lastPlayerPosition: 5,
-	}
+  return {
+    pointer: 0,
+    distance: 0,
+    activeEnemies: [],
+    lastPlayerPosition: 5,
+    delay: 0,
+    lastFarthestEnemyPos: 0,
+  }
 }
 
 export function createInitialState(): WorldState {
@@ -173,6 +175,7 @@ export function createInitialState(): WorldState {
 		spawnHordeMonster(world, firstEntry.spec, 10)
 		world.horde.activeEnemies.push(world._nextEntityId - 1)
 		world.horde.pointer = 1
+		world.horde.lastFarthestEnemyPos = 10
 	}
 
 	return world

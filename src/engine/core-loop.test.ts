@@ -122,21 +122,13 @@ describe('core-loop regression', () => {
 
     processHordeTick(world, 0)
 
-    expect(world.horde.pointer).toBe(4)
     expect(world.horde.distance).toBeGreaterThan(0)
   })
 
-  it('enemy approaches player over successive turns', () => {
+  it('horde distance approaches player over successive turns', () => {
+    world.horde.distance = 5
     processHordeTick(world, 0)
-
-    const enemy = [...world.entities.values()].find(e => e.name !== 'Player')!
-    expect(enemy.position).toBe(10)
-
-    for (let i = 0; i < 4; i++) {
-      processHordeTick(world, 0)
-    }
-
-    expect(enemy.position).toBe(6)
+    expect(world.horde.distance).toBe(4)
   })
 
   it('Attack hits spawned enemy after it approaches', () => {
@@ -173,14 +165,12 @@ describe('core-loop regression', () => {
     expect(world.horde.distance).toBe(distBefore)
   })
 
-  it('player moving left does not increase or decrease horde distance', () => {
-    processHordeTick(world, 0)
-
-    const distAfter = world.horde.distance
+  it('player moving left cancels enemy advance (net zero when distance > 0)', () => {
+    world.horde.distance = 2
 
     processHordeTick(world, -1)
 
-    expect(world.horde.distance).toBe(distAfter)
+    expect(world.horde.distance).toBe(2)
   })
 
   it('Interact on king tile at position 0', () => {

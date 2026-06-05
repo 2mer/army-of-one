@@ -12,4 +12,4 @@ export interface MonsterSpec {
 
 export type HordeEntry =
   | { type: 'monster'; spec: MonsterSpec }
-  | { type: 'blank'; tiles: number }
+  | { type: 'blank' }

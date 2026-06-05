@@ -9,23 +9,41 @@ import { pushLog } from '@/engine/core/types'
 
 loader.config({ monaco })
 
-const DEFAULT_SCRIPT = `act(function*(player) {
+export const DEFAULT_SCRIPT = `act(async function*(player) {
   while (true) {
-    const there = player.position + 1
+    const event = await waitForInput()
 
-    if (player.inspect(there).occupant && player.abilities.Attack.at(there).canCast) {
-      yield player.abilities.Attack.at(there).cast()
-    } else if (player.abilities.MoveForward.at(there).canCast) {
-      yield player.abilities.MoveForward.at(there).cast()
-    } else {
+    if (event.key === 'z') {
       yield player.abilities.Wait.at(player.position).cast()
+    } else if (event.key === 'ArrowLeft') {
+      const there = player.position - 1
+      if (player.abilities.MoveBack.at(there).canCast) {
+        yield player.abilities.MoveBack.at(there).cast()
+      }
+    } else if (event.key === 'ArrowRight') {
+      const there = player.position + 1
+      if (player.abilities.MoveForward.at(there).canCast) {
+        yield player.abilities.MoveForward.at(there).cast()
+      }
+    } else if (event.key === 'f') {
+      const there = player.position + 1
+      if (player.abilities.Attack.at(there).canCast) {
+        yield player.abilities.Attack.at(there).cast()
+      }
+    } else if (event.key === 'r') {
+      const there = player.position + 1
+      if (player.abilities.StrongAttack.at(there).canCast) {
+        yield player.abilities.StrongAttack.at(there).cast()
+      }
     }
   }
 })
 `
 
 const DECLARATIONS = `
-declare function act(factory: (player: PlayerFacade) => Generator<Sentinel, void, unknown>): void
+declare function waitForInput(): Promise<KeyboardEvent>
+
+declare function act(factory: (player: PlayerFacade) => Generator<Sentinel, void, unknown> | AsyncGenerator<Sentinel, void, unknown>): void
 
 interface PlayerFacade {
   abilities: Record<string, AbilityFacade>
@@ -62,9 +80,11 @@ interface Sentinel {
 interface ScriptEditorProps {
   processor: ActionProcessor | null
   mode: 'idle' | 'auto'
+  onCodeChange: (code: string) => void
+  onRun: () => void
 }
 
-export function ScriptEditor({ processor, mode }: ScriptEditorProps) {
+export function ScriptEditor({ processor, mode, onCodeChange, onRun }: ScriptEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
 
   const handleMount: OnMount = useCallback((editor, monacoNs) => {
@@ -79,50 +99,33 @@ export function ScriptEditor({ processor, mode }: ScriptEditorProps) {
     editor.focus()
   }, [])
 
-  const handleRun = useCallback(() => {
-    const code = editorRef.current?.getValue()
-    if (!code || !processor) return
-
-    if (processor.mode === 'auto') {
-      processor.stop()
-    }
-
-    try {
-      const factory = new Function('act', code)
-      factory((fn: (player: PlayerFacade) => Generator<Sentinel, void, unknown>) => {
-        processor.act(fn)
-      })
-    } catch (e) {
-      pushLog(processor.world, `Script compile error: ${e instanceof Error ? e.message : e}`, 'error')
-    }
-  }, [processor])
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center gap-2 px-3 py-1 bg-[#1a1a22] border-b border-[#333] text-xs text-[#888]">
-        <span>script.strategy.ts</span>
-        <span className="flex-1" />
-        {processor && (
-          <ScriptIndicator processor={processor} paused={processor.paused} onRun={handleRun} />
-        )}
-      </div>
-      <div className="flex-1">
+	return (
+		<div className="flex-1 flex flex-col min-h-0">
+			<div className="flex items-center gap-2 px-3 py-1 bg-[#1a1a22] border-b border-[#333] text-xs text-[#888]">
+				<span>script.strategy.ts</span>
+				<span className="flex-1" />
+          {processor && (
+            <ScriptIndicator processor={processor} paused={processor.paused} onRun={onRun} />
+          )}
+			</div>
+			<div className="flex-1">
         <Editor
           height="100%"
           defaultLanguage="typescript"
           theme="vs-dark"
           defaultValue={DEFAULT_SCRIPT}
           onMount={handleMount}
+          onChange={(value) => value !== undefined && onCodeChange(value)}
           options={{
-            minimap: { enabled: false },
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            fontSize: 13,
-            fontFamily: 'ui-monospace, Consolas, monospace',
-            padding: { top: 8 },
-          }}
-        />
-      </div>
-    </div>
-  )
+						minimap: { enabled: false },
+						lineNumbers: 'on',
+						scrollBeyondLastLine: false,
+						fontSize: 13,
+						fontFamily: 'ui-monospace, Consolas, monospace',
+						padding: { top: 8 },
+					}}
+				/>
+			</div>
+		</div>
+	)
 }

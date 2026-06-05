@@ -70,10 +70,12 @@ Tracks the virtual horde queue. Fields:
 - `distance: number` — tiles until the next unprocessed horde entry reaches the player
 - `activeEnemies: EntityId[]` — entity IDs of enemies currently on the field
 - `lastPlayerPosition: number` — player position at end of last turn
+- `delay: number` — accumulated delay from turns where the farthest enemy did not advance. Consumed by the spawner (skips blanks) and the renderer (compresses gaps visually)
+- `lastFarthestEnemyPos: number` — position of the farthest enemy on the previous tick, used to detect when enemies are stuck
 
 ## Horde queue
 
-100 indexed entries define the enemy sequence. Each entry is either a monster (with name, glyph, stats, damage type/amount) or a blank (adds N tiles of distance). Beyond index 99, returns a Shadow Slime (999 HP, 999999 shadow damage) as a soft cap.
+100 indexed entries define the enemy sequence. Each entry is either a monster (with name, glyph, stats, damage type/amount) or a blank (single-tile gap). Beyond index 99, returns a Shadow Slime (999 HP, 999999 shadow damage) as a soft cap.
 
 Built procedurally in `src/engine/horde/queue.ts` with alternating clusters of green/red/blue slimes separated by blank gaps.
 
@@ -81,11 +83,13 @@ Built procedurally in `src/engine/horde/queue.ts` with alternating clusters of g
 
 Called after each player action (after enemy AI). Each tick:
 1. Cleans dead enemies from `activeEnemies`
-2. Decrements distance: base -1, extra -1 if player moved right, +1 if player moved left (cancels advance)
-3. If `activeEnemies.length < 3` and `distance <= player.viewRange`: processes next queue entry
-   - Monster: spawns at `playerPos + viewRange + activeCount`, added to activeEnemies
-   - Blank: adds tiles to distance (no spawn)
-   - At most one entry processed per tick
+2. If enemies exist: compares farthest enemy position against `lastFarthestEnemyPos`. If unchanged (enemies stuck), increments `delay`.
+   - `lastFarthestEnemyPos` is NOT updated here — it's updated after spawning to capture the post-spawn farthest position.
+3. Decrements distance: base -1, extra -1 if player moved right, +1 if player moved left (cancels advance)
+4. If `activeEnemies.length < 3` and `distance <= player.viewRange`:
+   - **Active enemies exist**: walks queue entries to find next monster. Blank entries either advance spawn position (normal) or are consumed by `delay` (skipped without advancing spawn position). Once a monster is found, spawns it at the accumulated position.
+   - **No active enemies**: first consumes any `delay` by skipping blanks immediately (or spawning a monster if one is reached). Then processes one queue entry: blank adds 1 to distance, monster spawns at player view range edge.
+5. `lastFarthestEnemyPos` is updated at each return point: either recomputed from active enemies (cap reached) or set to the new spawn position (after spawning).
 
 ## Distance formula
 

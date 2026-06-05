@@ -15,6 +15,7 @@ export interface ProcessorState {
 export class ActionProcessor {
   world: WorldState
   private generator: Generator<Sentinel, void, unknown> | null = null
+  private asyncGenerator: AsyncGenerator<Sentinel, void, unknown> | null = null
   private frameId: number | null = null
   private lastActionTime: number = 0
   speed: number = 200
@@ -31,19 +32,29 @@ export class ActionProcessor {
   }
 
   get mode(): 'idle' | 'auto' {
-    return this.generator ? 'auto' : 'idle'
+    return this.generator || this.asyncGenerator ? 'auto' : 'idle'
   }
 
-  act(factory: (player: PlayerFacade) => Generator<Sentinel, void, unknown>): void {
-    if (this.generator) {
+  act(factory: (player: PlayerFacade) => Generator<Sentinel, void, unknown> | AsyncGenerator<Sentinel, void, unknown>): void {
+    if (this.generator || this.asyncGenerator) {
       throw new Error('a script is already running')
     }
     const player = new PlayerFacade(this.world)
-    this.generator = factory(player)
-    this.paused = false
-    this.lastActionTime = 0
-    this.notify()
-    this.startLoop()
+    const gen = factory(player)
+
+    if (Symbol.asyncIterator in gen) {
+      this.asyncGenerator = gen as AsyncGenerator<Sentinel, void, unknown>
+      this.paused = false
+      this.lastActionTime = 0
+      this.notify()
+      this.runAsyncLoop()
+    } else {
+      this.generator = gen as Generator<Sentinel, void, unknown>
+      this.paused = false
+      this.lastActionTime = 0
+      this.notify()
+      this.startLoop()
+    }
   }
 
   togglePause(): void {
@@ -53,6 +64,7 @@ export class ActionProcessor {
 
   stop(): void {
     this.generator = null
+    this.asyncGenerator = null
     this.paused = false
     this.notify()
     this.stopLoop()
@@ -134,6 +146,54 @@ export class ActionProcessor {
     this.notify()
   }
 
+  private async runAsyncLoop(): Promise<void> {
+    while (this.asyncGenerator) {
+      try {
+        const { value: sentinel, done } = await this.asyncGenerator.next()
+
+        if (done || !this.asyncGenerator) {
+          this.asyncGenerator = null
+          this.notify()
+          return
+        }
+
+        const playerBefore = this.world.entities.get(this.world.playerId)?.position ?? 0
+
+        const result = executeSentinel(this.world, sentinel)
+
+        this.checkPlayerDeath()
+
+        if (result.consumeTurn && this.world.gameResult === 'playing') {
+          try {
+            processEnemyAI(this.world)
+          } catch (e) {
+            pushLog(this.world, `Enemy AI error: ${e instanceof Error ? e.message : e}`, 'error')
+          }
+          this.checkPlayerDeath()
+
+          const playerAfter = this.world.entities.get(this.world.playerId)?.position ?? 0
+          const playerDelta = playerAfter - playerBefore
+          processHordeTick(this.world, playerDelta)
+
+          this.world.turn++
+        }
+      } catch (e) {
+        pushLog(this.world, `Script error: ${e instanceof Error ? e.message : e}`, 'error')
+        this.asyncGenerator = null
+        this.paused = false
+        this.notify()
+        return
+      }
+
+      this.checkGameResult()
+      this.tickNum++
+      this.notify()
+    }
+
+    this.asyncGenerator = null
+    this.notify()
+  }
+
   private checkPlayerDeath(): void {
     const player = this.world.entities.get(this.world.playerId)
     if (player && player.hp <= 0) {
@@ -144,6 +204,7 @@ export class ActionProcessor {
   private checkGameResult(): void {
     if (this.world.gameResult !== 'playing') {
       this.generator = null
+      this.asyncGenerator = null
       this.paused = false
       this.notify()
       this.stopLoop()

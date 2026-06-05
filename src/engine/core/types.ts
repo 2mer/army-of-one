@@ -111,6 +111,8 @@ export interface HordeState {
   distance: number
   activeEnemies: number[]
   lastPlayerPosition: number
+  delay: number
+  lastFarthestEnemyPos: number
 }
 
 export interface WorldState {

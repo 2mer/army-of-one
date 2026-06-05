@@ -26,7 +26,7 @@ function m(spec: MonsterSpec): HordeEntry[] {
 }
 
 function b(tiles: number): HordeEntry[] {
-  return [{ type: 'blank', tiles }]
+  return Array.from({ length: tiles }, () => ({ type: 'blank' } as HordeEntry))
 }
 
 function buildQueue(): HordeEntry[] {
@@ -61,9 +61,14 @@ function buildQueue(): HordeEntry[] {
   return q.slice(0, 100)
 }
 
-const HORDE_QUEUE = buildQueue()
+let HORDE_QUEUE = buildQueue()
 
 export function getHordeEntry(index: number): HordeEntry {
   if (index < HORDE_QUEUE.length) return HORDE_QUEUE[index]
   return { type: 'monster', spec: SHADOW }
+}
+
+/** @internal for tests */
+export function __setHordeQueue(queue: HordeEntry[]): void {
+  HORDE_QUEUE = queue
 }
