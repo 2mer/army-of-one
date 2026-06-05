@@ -50,7 +50,7 @@ function useGameState() {
 			world: () => world,
 			horde: (count = 20) => materializeHorde(world, count),
 		}
-		;(window as any).__debug = debug
+			; (window as any).__debug = debug
 		return () => { delete (window as any).__debug }
 	}, [world])
 
@@ -100,7 +100,7 @@ function App() {
 	const buildDialAbilities = useCallback((tileIndex: number): DialAbility[] => {
 		const player = world.entities.get(world.playerId)
 		if (!player) return []
-		const abilityOrder = ['MoveForward', 'MoveBack', 'Attack', 'StrongAttack', 'Interact', 'Wait']
+		const abilityOrder = ['MoveForward', 'MoveBack', 'Attack', 'StrongAttack', 'Interact', 'Wait', 'Debuff']
 		const slots: DialAbility[] = []
 		for (let i = 0; i < abilityOrder.length; i++) {
 			const name = abilityOrder[i]
@@ -231,10 +231,18 @@ function App() {
 											{occupant && (
 												<div className="text-[#c0c0c0]">{occupant.glyph} {occupant.name} ({occupant.hp}/{occupant.maxHp})</div>
 											)}
+											{occupant && occupant.statusEffects.length > 0 && (
+												<div className="text-[#666] mt-1">
+													{occupant.statusEffects.map(e => (
+														<div key={e.id}>{e.name} ({e.remainingTurns})</div>
+													))}
+												</div>
+											)}
 										</div>
 									</div>
 								)
-							})()}
+							})()
+							}
 							{dial && (
 								<RadialDial
 									x={dial.x}
@@ -277,6 +285,13 @@ function App() {
 											{poiLabel !== 'Blank' && <div className="text-[#666]">{poiLabel}</div>}
 											{occupant && (
 												<div className="text-[#c0c0c0]">{occupant.glyph} {occupant.name} ({occupant.hp}/{occupant.maxHp})</div>
+											)}
+											{occupant && occupant.statusEffects.length > 0 && (
+												<div className="text-[#666] mt-1">
+													{occupant.statusEffects.map(e => (
+														<div key={e.id}>{e.name} ({e.remainingTurns})</div>
+													))}
+												</div>
 											)}
 										</div>
 									</div>

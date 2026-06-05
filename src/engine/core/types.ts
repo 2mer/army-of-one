@@ -67,6 +67,10 @@ export interface StatusEffect {
   id: string
   name: string
   remainingTurns: number
+  onAdded?(world: WorldState, target: Entity): void
+  tick(world: WorldState, target: Entity): void
+  onRemoved?(world: WorldState, target: Entity): void
+  onConflict?(incoming: StatusEffect, target: Entity, world: WorldState): void
 }
 
 export interface EquipmentSlots {
@@ -113,6 +117,10 @@ export interface HordeState {
   lastPlayerPosition: number
   delay: number
   lastFarthestEnemyPos: number
+}
+
+export function isDead(entity: Entity): boolean {
+  return entity.hp <= 0
 }
 
 export interface WorldState {

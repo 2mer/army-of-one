@@ -1,6 +1,8 @@
 import type { WorldState, Entity, ActContext, AbilityComponent, EntityAttributes } from '@/engine/core/types'
 import { DamageType, DAMAGE_TYPE_META } from '@/engine/core/types'
 import { pushLog, pushLogSegments } from '@/engine/core/types'
+import { isDead } from '@/engine/core/types'
+import { processDeath } from '@/engine/core/death'
 
 export class Damage implements AbilityComponent {
   private damageType: DamageType
@@ -35,10 +37,9 @@ export class Damage implements AbilityComponent {
           { text: ` (${oldHp} → ${target.hp})` },
         ])
 
-        if (target.hp === 0 && oldHp > 0) {
+        if (isDead(target) && oldHp > 0) {
           pushLog(world, `${target.name} dies`, 'highlight')
-          tile.occupant = null
-          world.entities.delete(target.id)
+          processDeath(world, target)
         }
       }
     }

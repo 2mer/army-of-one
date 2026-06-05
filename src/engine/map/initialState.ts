@@ -10,6 +10,8 @@ import { Cooldown } from '@/engine/ability/components/Cooldown'
 import { Damage } from '@/engine/ability/components/Damage'
 import { MoveToTile } from '@/engine/ability/components/MoveToTile'
 import { InteractWithTile } from '@/engine/ability/components/InteractWithTile'
+import { AppliesStatus } from '../ability/components/AppliesStatus'
+import { BuffStatusEffect } from '../statusEffects/BuffStatusEffect'
 
 function createPlayerAbilities() {
 	return [
@@ -52,6 +54,18 @@ function createPlayerAbilities() {
 				new ResourceCost([{ type: 'mana', amount: 5 }]),
 				new Cooldown(2),
 				new Damage(DamageType.PHYSICAL, 100),
+			],
+			currentCooldown: 0,
+			consumeTurn: true,
+		},
+		{
+			id: 'debuff',
+			name: 'Debuff',
+			components: [
+				new TargetNearestEnemy(1),
+				new ResourceCost([{ type: 'mana', amount: 5 }]),
+				new Cooldown(4),
+				new AppliesStatus(() => new BuffStatusEffect({ name: 'Weakened', stats: { physical_resistance: -10 }, turns: 3 }))
 			],
 			currentCooldown: 0,
 			consumeTurn: true,
@@ -135,14 +149,14 @@ function materialiseTile(index: number, poi: POI): Tile {
 }
 
 function createHordeState(): HordeState {
-  return {
-    pointer: 0,
-    distance: 0,
-    activeEnemies: [],
-    lastPlayerPosition: 5,
-    delay: 0,
-    lastFarthestEnemyPos: 0,
-  }
+	return {
+		pointer: 0,
+		distance: 0,
+		activeEnemies: [],
+		lastPlayerPosition: 5,
+		delay: 0,
+		lastFarthestEnemyPos: 0,
+	}
 }
 
 export function createInitialState(): WorldState {

@@ -35,6 +35,43 @@ A per-entity record of typed bonuses and resistances. Keys are dynamically deriv
 
 Default attributes are all zeros. Equipment and status effects can modify them later.
 
+## AppliesStatus
+
+An ability component that applies a status effect to each target entity in `ActContext.targets`. Takes a factory `(target: Entity) => StatusEffect` so each target receives a fresh instance (future-proof for per-target variance). Applied during the `act` phase.
+
+## StatusEffect
+
+An effect applied to an entity that persists for a number of turns. Interface:
+
+- `id: string` — unique per instance
+- `name: string` — display name
+- `remainingTurns: number` — ticks left (0 = expired)
+- `onAdded(world, target)` — called when the effect is first applied
+- `tick(world, target)` — called at the end of the affected entity's turn
+- `onRemoved(world, target)` — called when the effect expires or is cleansed
+- `onConflict?(incoming: StatusEffect, target: Entity, world: WorldState): void` — optional conflict resolver. Called when another effect with the same `name` would be applied. The callback owns splice/replace/refresh logic. When absent, both effects coexist (stack).
+
+Conflicts are detected by matching `name` on the target's `statusEffects` array. The system calls `onConflict` on the **existing** effect, passing the incoming effect, and then skips pushing the incoming (the callback decides what happens).
+
+## BuffStatusEffect
+
+A concrete status effect. Constructor takes `{ name, turns, stats }` where `stats` is a `Partial<EntityAttributes>`. Applies stat modifiers additively in `onAdded` and reverts them in `onRemoved`.
+
+## Turn order — status tick timing
+
+Status effects tick at the **end** of the affected entity's turn, before handing focus to the next entity:
+
+1. Player action executes
+2. Player status effects tick (post-action)
+3. Enemy 1 AI executes
+4. Enemy 1 status effects tick
+5. Enemy 2 AI executes
+6. Enemy 2 status effects tick
+7. Horde tick processes distance and spawning
+8. Next turn begins
+
+This is a change from the current batch-AI-then-horde flow.
+
 ## Cooldown
 
 A component that declares an ability cannot be re-used for N turns after activation.
@@ -120,7 +157,16 @@ A concrete ability attached to an entity. Fields: `id: string` (unique per insta
 
 ## Death
 
-When an entity's HP reaches 0, it is removed from WorldState immediately. The tile it occupied becomes unoccupied. Optionally, a loot drop may be spawned on the tile (non-blocking, so the tile is immediately traversable).
+When an entity's HP reaches 0, death is deferred until after all status effect cleanup. The entity remains in `world.entities` and on its tile until the death sweep runs.
+
+Death sweep order:
+1. Status effects tick (damage may drop HP ≤ 0)
+2. Expired effects call `onRemoved` (entity still alive in map, HP may mutate)
+3. If HP ≤ 0 after step 2, all remaining active effects call `onRemoved`
+4. If HP ≤ 0 after step 3, entity is removed from its tile and `world.entities`
+5. Horde tick's `activeEnemies` filter double-sweeps stale IDs (harmless)
+
+This deferred model allows effects to react to death (e.g., resurrect, explosion) during their `onRemoved` hook.
 
 ## TileComponent
 

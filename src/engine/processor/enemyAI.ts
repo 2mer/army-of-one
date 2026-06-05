@@ -1,5 +1,6 @@
 import type { WorldState, Entity } from '@/engine/core/types'
 import { executeSentinel } from '@/engine/ability/pipeline'
+import { processStatusEffects } from '@/engine/statusEffects/system'
 
 export function processEnemyAI(world: WorldState): void {
   const player = world.entities.get(world.playerId)
@@ -10,6 +11,7 @@ export function processEnemyAI(world: WorldState): void {
     if (entity.hp <= 0) continue
 
     actForSlime(world, entity, player)
+    processStatusEffects(world, entity)
   }
 }
 
