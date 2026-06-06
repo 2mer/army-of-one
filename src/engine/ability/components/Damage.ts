@@ -3,6 +3,7 @@ import { DamageType, DAMAGE_TYPE_META } from '@/engine/core/types'
 import { pushLog, pushLogSegments } from '@/engine/core/types'
 import { isDead } from '@/engine/core/types'
 import { processDeath } from '@/engine/core/death'
+import type { GameEventMap } from '@/engine/core/events'
 
 export class Damage implements AbilityComponent {
   private damageType: DamageType
@@ -28,6 +29,15 @@ export class Damage implements AbilityComponent {
 
         const oldHp = target.hp
         target.hp = Math.max(0, target.hp - finalDamage)
+
+        world.bus.emit('damage:dealt', {
+          sourceId: caster.id,
+          targetId: target.id,
+          damageType: this.damageType,
+          amount: finalDamage,
+          position: target.position,
+          targetHp: target.hp,
+        })
 
         const meta = DAMAGE_TYPE_META[this.damageType]
         const label = this.damageType.charAt(0).toUpperCase() + this.damageType.slice(1)

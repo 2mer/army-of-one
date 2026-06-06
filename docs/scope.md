@@ -215,12 +215,17 @@ Vite 8, React 19, TypeScript 6, TailwindCSS v4, shadcn/ui, Pixi.js v8, @monaco-e
 - Bounded range (min/max zoom level)
 - Keyboard shortcuts or scroll wheel
 
-#### G6 — Visual Polish
+#### G6 — Juice & Feedback
 - Tile hover highlighting
-- Ability cast animations (flash, shake, fade)
-- Death animation (glyph fades out)
-- Smooth movement transitions
-- Screen shake on damage
+- Floating damage numbers (colour-coded by damage type, stack vertically)
+- Status effect particle (glyph pulse + floating label)
+- Death particle burst (enemy glyph shards)
+- Smooth movement tween (200ms easeOutQuad)
+- Smooth camera follow (300ms easeOutQuad)
+- Screen shake on damage (deferred)
+- Cast animations (flash, ring, beam — deferred)
+- **Audio**: Procedural SFX via Web Audio API (hit, death, walk, buff sound effects)
+- **Event bus**: Synchronous typed `EventEmitter` on `WorldState` — engine emits events, feedback layer reacts
 
 ### H. Run Lifecycle
 

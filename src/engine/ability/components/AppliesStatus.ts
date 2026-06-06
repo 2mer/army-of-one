@@ -24,6 +24,13 @@ export class AppliesStatus implements AbilityComponent {
 
       target.statusEffects.push(newEffect)
       newEffect.onAdded?.(world, target)
+
+      world.bus.emit('status:applied', {
+        targetId: target.id,
+        statusName: newEffect.name,
+        position: target.position,
+        isBuff: newEffect.isBuff,
+      })
     }
   }
 }

@@ -19,6 +19,7 @@ export class BuffStatusEffect extends StatusEffect {
     this.id = `buff-${nextBuffId++}`
     this.name = config.name
     this.stats = config.stats
+    this.isBuff = Object.values(config.stats).some(v => v > 0)
   }
 
   onAdded(_world: WorldState, target: Entity): void {

@@ -12,6 +12,14 @@ export function cleanupEntity(world: WorldState, entity: Entity): void {
 export function processDeath(world: WorldState, entity: Entity): void {
   if (!isDead(entity)) return
 
+  world.bus.emit('entity:died', {
+    entityId: entity.id,
+    entityName: entity.name,
+    position: entity.position,
+    glyph: entity.glyph,
+    glyphColor: entity.glyphColor,
+  })
+
   for (const effect of entity.statusEffects) {
     effect.onRemoved?.(world, entity)
   }

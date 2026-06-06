@@ -141,6 +141,7 @@ describe('AppliesStatus component', () => {
     class RefreshEffect extends StatusEffect {
       id = 'test'
       name = 'TestBuff'
+      isBuff = true
       onConflict(_incoming: any) { conflictCalled = true }
     }
 

@@ -67,6 +67,7 @@ export interface StatusEffect {
   id: string
   name: string
   remainingTurns: number
+  isBuff: boolean
   onAdded?(world: WorldState, target: Entity): void
   tick(world: WorldState, target: Entity): void
   onRemoved?(world: WorldState, target: Entity): void
@@ -133,6 +134,7 @@ export interface WorldState {
   _nextLogId: number
   _nextEntityId: number
   horde: HordeState
+  bus: import('./EventBus').EventBus<import('./events').GameEventMap>
 }
 
 export interface Entity {

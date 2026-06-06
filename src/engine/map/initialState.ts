@@ -3,6 +3,8 @@ import type { WorldState, Entity, HordeState } from '@/engine/core/types'
 import { DamageType, defaultAttributes } from '@/engine/core/types'
 import { getHordeEntry } from '@/engine/horde/queue'
 import { spawnHordeMonster } from '@/engine/horde/system'
+import { EventBus } from '@/engine/core/EventBus'
+import type { GameEventMap } from '@/engine/core/events'
 import { TargetTile } from '@/engine/ability/components/TargetTile'
 import { TargetNearestEnemy } from '@/engine/ability/components/TargetNearestEnemy'
 import { ResourceCost } from '@/engine/ability/components/ResourceCost'
@@ -160,17 +162,18 @@ function createHordeState(): HordeState {
 }
 
 export function createInitialState(): WorldState {
-	const world: WorldState = {
-		entities: new Map(),
-		playerId: 1,
-		tiles: new Map(),
-		turn: 0,
-		gameResult: 'playing',
-		log: [],
-		_nextLogId: 1,
-		_nextEntityId: 2,
-		horde: createHordeState(),
-	}
+  const world: WorldState = {
+    entities: new Map(),
+    playerId: 1,
+    tiles: new Map(),
+    turn: 0,
+    gameResult: 'playing',
+    log: [],
+    _nextLogId: 1,
+    _nextEntityId: 2,
+    horde: createHordeState(),
+    bus: new EventBus<GameEventMap>(),
+  }
 
 	const player = createPlayerEntity()
 	world.entities.set(player.id, player)

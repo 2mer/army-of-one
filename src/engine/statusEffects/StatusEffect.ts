@@ -3,6 +3,7 @@ import type { WorldState, Entity, StatusEffect as StatusEffectInterface } from '
 export abstract class StatusEffect implements StatusEffectInterface {
   abstract id: string
   abstract name: string
+  abstract isBuff: boolean
   remainingTurns: number
 
   constructor(turns: number) {

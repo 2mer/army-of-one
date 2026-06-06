@@ -1,6 +1,7 @@
 import { Application, Container, Text, Graphics } from 'pixi.js'
 import type { WorldState, Tile, RenderableComponent } from '@/engine/core/types'
 import { getHordeEntry } from '@/engine/horde/queue'
+import { FeedbackLayer } from './FeedbackLayer'
 
 const TILE_SIZE = 24
 const FONT_SIZE = 18
@@ -16,6 +17,8 @@ export class GameField {
   private app: Application
   private tileContainer: Container
   private entityContainer: Container
+  private effectContainer: Container
+  private damageNumberContainer: Container
   private highlightContainer: Container
   private virtualHordeContainer: Container
   private tileSprites: Map<number, Text> = new Map()
@@ -25,7 +28,10 @@ export class GameField {
   private interactive: boolean = false
   private onTileClickCb: TileClickCallback | null = null
   private onTileHoverCb: TileHoverCallback | null = null
-  private playerPosition: number = 0
+  private cameraPos: number = 0
+  private animatedEntityIds: Set<number> = new Set()
+  private feedbackLayer: FeedbackLayer | null = null
+  private _initialized: boolean = false
   private _hoveredTile: number | null = null
   private _boundPointerDown: (e: PointerEvent) => void
   private _boundPointerMove: (e: PointerEvent) => void
@@ -38,10 +44,14 @@ export class GameField {
     this.virtualHordeContainer = new Container()
     this.virtualHordeContainer.alpha = 0.5
     this.entityContainer = new Container()
+    this.effectContainer = new Container()
+    this.damageNumberContainer = new Container()
     app.stage.addChild(this.highlightContainer)
     app.stage.addChild(this.tileContainer)
     app.stage.addChild(this.virtualHordeContainer)
     app.stage.addChild(this.entityContainer)
+    app.stage.addChild(this.effectContainer)
+    app.stage.addChild(this.damageNumberContainer)
 
     this._boundPointerDown = (e: PointerEvent) => this.handlePointerDown(e)
     this._boundPointerMove = (e: PointerEvent) => this.handlePointerMove(e)
@@ -82,8 +92,23 @@ export class GameField {
   }
 
   update(world: WorldState): void {
-    const player = world.entities.get(world.playerId)
-    this.playerPosition = player?.position ?? 0
+    if (!this._initialized) {
+      this._initialized = true
+      const player = world.entities.get(world.playerId)
+      this.cameraPos = player?.position ?? 0
+      this.feedbackLayer = new FeedbackLayer(
+        world.bus,
+        this.app.ticker,
+        this.damageNumberContainer,
+        this.effectContainer,
+        this.entitySprites,
+        this.animatedEntityIds,
+        (index) => this.tileToScreen(index),
+        () => this.cameraPos,
+        (v) => { this.cameraPos = v },
+        world.playerId,
+      )
+    }
     this.renderTiles(world)
     this.renderVirtualHorde(world)
     this.renderEntities(world)
@@ -121,7 +146,7 @@ export class GameField {
   private screenToTile(canvasX: number): number {
     const centerX = this.app.screen.width / 2
     const offset = Math.round((canvasX - centerX) / TILE_SIZE)
-    return this.playerPosition + offset
+    return Math.round(this.cameraPos) + offset
   }
 
   private updateHighlights(hoveredIndex: number | null): void {
@@ -150,7 +175,7 @@ export class GameField {
 
   private tileToScreenRaw(index: number): { x: number; y: number } {
     return {
-      x: this.app.screen.width / 2 + (index - this.playerPosition) * TILE_SIZE,
+      x: this.app.screen.width / 2 + (index - this.cameraPos) * TILE_SIZE,
       y: this.app.screen.height / 2 + Math.min(BASE_TILE_Y, this.app.screen.height * 0.15),
     }
   }
@@ -177,7 +202,7 @@ export class GameField {
       sprite.style.fill = renderable.fgColor
       sprite.alpha = isOccupied ? 0.4 : 1
 
-      const screenPos = this.tileToScreen(world, index)
+      const screenPos = this.tileToScreen( index)
       sprite.x = screenPos.x
       sprite.y = screenPos.y
     }
@@ -219,9 +244,11 @@ export class GameField {
       sprite.text = entity.glyph
       sprite.alpha = 1
 
-      const screenPos = this.tileToScreen(world, entity.position)
-      sprite.x = screenPos.x
-      sprite.y = screenPos.y
+      if (!this.animatedEntityIds.has(id)) {
+        const screenPos = this.tileToScreen(entity.position)
+        sprite.x = screenPos.x
+        sprite.y = screenPos.y
+      }
     }
 
     for (const staleId of existingKeys) {
@@ -233,6 +260,7 @@ export class GameField {
       this.entitySprites.delete(staleId)
     }
   }
+
 
   private renderVirtualHorde(world: WorldState): void {
     const player = world.entities.get(world.playerId)
@@ -280,7 +308,7 @@ export class GameField {
           sprite.text = entry.spec.glyph
           sprite.style.fill = entry.spec.glyphColor
         }
-        const screen = this.tileToScreen(world, pos)
+        const screen = this.tileToScreen( pos)
         sprite.position.set(screen.x, screen.y)
         pos++
         entryOffset++
@@ -341,10 +369,8 @@ export class GameField {
     return visible
   }
 
-  private tileToScreen(world: WorldState, index: number): { x: number; y: number } {
-    const player = world.entities.get(world.playerId)
-    const center = player?.position ?? 0
-    const offset = index - center
+  private tileToScreen(index: number): { x: number; y: number } {
+    const offset = index - this.cameraPos
 
     return {
       x: this.app.screen.width / 2 + offset * TILE_SIZE,

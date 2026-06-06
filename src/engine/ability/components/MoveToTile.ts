@@ -3,8 +3,11 @@ import type { WorldState, Entity, ActContext, AbilityComponent } from '@/engine/
 export class MoveToTile implements AbilityComponent {
   act(world: WorldState, caster: Entity, ctx: ActContext): void {
     const targetTile = ctx.targets[0]
-    const oldTile = world.tiles.get(caster.position)
+    const from = caster.position
+    const oldTile = world.tiles.get(from)
     if (oldTile) oldTile.occupant = null
+
+    world.bus.emit('entity:moved', { entityId: caster.id, from, to: targetTile })
 
     caster.position = targetTile
     let newTile = world.tiles.get(targetTile)
